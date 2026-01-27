@@ -91,10 +91,10 @@ export default function App() {
       setChatHistory([{
         id: 'welcome',
         role: 'model',
-        content: `Hola. Soy ActaGen (v3.0). He cargado el **Manual de Estilo y Redacción**.\n\n` +
-                 (transcriptCount > 0 ? `📚 **Borradores Detectados**: ${transcriptCount} archivos. Procederé a la **Fusión Inteligente** (detección de solapamientos).\n` : '') +
-                 (hasYoutube ? `🎥 **Fuente de Verdad (Video)**: URL de YouTube activa. La usaré para auditar el texto.\n` : '') +
-                 `\nMi misión es **UNIFICAR** las partes, validar cifras/votos con el video y generar el **Acta Maestra**.\n\n¿Procedo con la fusión y curaduría?`,
+        content: `Hola. Soy ActaGen (v3.0). He cargado el **Protocolo de 19 Pasos** y el **Manual de Estilo Completo**.\n\n` +
+                 (transcriptCount > 0 ? `📚 **Entrada**: ${transcriptCount} borradores de digitadoras detectados.\n` : '') +
+                 (hasYoutube ? `🎥 **Contraste**: URL de YouTube activa. Generaré una propuesta interna basada en el video para contrastar con los borradores.\n` : '') +
+                 `\nMi objetivo es construir una **Propuesta de Acta Literal** lo más completa posible y generar el reporte de observaciones (Paso 19).\n\n¿Inicio el protocolo de revisión y ensamblaje?`,
         timestamp: new Date(),
         type: 'text'
       }]);
@@ -123,43 +123,38 @@ export default function App() {
 
   const handleDownloadDocx = () => {
     const session = sessions.find(s => s.id === selectedSessionId);
-    // Simulating the construction of a REAL document structure, not just a placeholder
+    // Simulating the construction of a REAL document structure based on the 19 steps
     const generatedContent = `
 ACTA No. ${session?.id || '000'}
 SESIÓN ${session?.name.toUpperCase() || 'ORDINARIA'}
 FECHA: ${session?.date}
 HORA INICIO: 09:00 | HORA FIN: ${session?.duration}
 
-[DOCUMENTO CURADO Y UNIFICADO POR GEMINI 3 AGENT]
+[PROPUESTA DE ACTA LITERAL - GENERADA POR AGENTE GEMINI 3]
 
 1. LLAMADO A LISTA Y VERIFICACIÓN DEL QUÓRUM
 El secretario procedió a llamar a lista. Contestaron SÍ los concejales: (Verificación contra video: OK)
 ...
 
-2. ORDEN DEL DÍA
-Aprobado por unanimidad.
+[...CONTENIDO LITERAL EXTENSO DE LA SESIÓN...]
 
-3. DESARROLLO DE LA SESIÓN (Fusión de ${session?.transcriptFiles?.length || 1} Borradores)
-Intervino el alcalde de Medellín, Daniel Quintero Calle:
-"Es importante mencionar que la inversión asciende a $ 1 500 000 (Corrección de formato aplicada)..."
+-----------------------------------------------------------
+ANEXO: REPORTE DE OBSERVACIONES PARA DIGITADORAS (PASO 19)
+-----------------------------------------------------------
+Este reporte contrasta los borradores entregados con la evidencia en video.
 
-Intervino el concejal Simón Pérez Londoño:
-"Referente a la situación mencionada..."
+1. PAGINACIÓN: Se detectó error en consecutivo en el empalme Parte 2 -> Parte 3. Corregido en esta versión.
+2. ESTILO: Se encontraron comillas simples en pág 5 (Prohibido según Regla 1).
+3. CIFRAS: En la pág. 12, borrador dice "$2.5 millones", video (min 45:20) confirma "$2.5 billones".
+4. NOMBRES: Corregir apellido "Muñoz" por "Muñetón" en intervención pág 18.
 
-4. VOTACIONES
-Se sometió a votación nominal.
-Votaron SÍ: 18 Concejales.
-Votó NO: 0 Concejales.
-Fue Aprobado.
-
-(Firmas)
-PRESIDENTE                                SECRETARIO GENERAL
+Por favor revisar estas observaciones sobre el documento maestro adjunto.
     `;
 
     const element = document.createElement("a");
     const file = new Blob([generatedContent], {type: 'application/msword'});
     element.href = URL.createObjectURL(file);
-    element.download = `ACTA_OFICIAL_${session?.id}_CONSOLIDADA.docx`;
+    element.download = `PROPUESTA_ACTA_${session?.id}_CON_OBSERVACIONES.docx`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -171,38 +166,39 @@ PRESIDENTE                                SECRETARIO GENERAL
     const files = session?.transcriptFiles || [];
     const hasYoutube = !!session?.youtubeUrl;
 
-    // Simulate merging files
+    // Mapping steps to the 19-step protocol
     const steps: TerminalLine[] = [
-      { text: `inicializando ActaGen v3.5 (Municipal Optimized)...`, type: 'info' },
+      { text: `iniciando Protocolo de Revisión de 19 Pasos...`, type: 'info' },
     ];
 
     if (files.length > 0) {
+        steps.push({ text: `[PASO 1] Fusión de ${files.length} borradores. Eliminando info digitadoras y empalmes...`, type: 'command' });
         files.forEach((f, i) => {
-            steps.push({ text: `>> leyendo buffer: "${f}"...`, type: 'command' });
             if (i > 0) {
-                 steps.push({ text: `   [SMART MERGE] analizando ventana de empalme (Parte ${i} <-> Parte ${i+1})...`, type: 'info' });
-                 steps.push({ text: `   [SMART MERGE] Fuzzy Match Score: 0.98. Solapamiento detectado.`, type: 'info' });
-                 steps.push({ text: `   >> Eliminando 184 caracteres redundantes. Unión exitosa.`, type: 'success' });
+                 steps.push({ text: `   >> Empalme Parte ${i}-${i+1}: Eliminado párrafo repetido (Overlap Detection).`, type: 'success' });
             }
         });
-        steps.push({ text: `[PAGINATION] Normalizando foliación continua (1-${files.length * 15})...`, type: 'warning' });
-    } else {
-        steps.push({ text: `leyendo transcripción única...`, type: 'info' });
     }
 
+    steps.push({ text: `[PASO 2-6] Verificando Metadatos (Portada, Fecha, Horas)...`, type: 'info' });
+    
     if (hasYoutube) {
-        steps.push({ text: `[SOURCE OF TRUTH] Conectando API YouTube (${session?.youtubeUrl})...`, type: 'info' });
-        steps.push({ text: `[AUDIT] Sincronización A/V completa.`, type: 'command' });
-        steps.push({ text: `>> [CORRECCIÓN] Min 14:20 - Audio: "$ 5.3 billones" | Texto: "5.3 millones". (Actualizado)`, type: 'success' });
-        steps.push({ text: `>> [VERIFICACIÓN] Quórum visual confirmado.`, type: 'success' });
+        steps.push({ text: `[CONTRASTE] Analizando Video Fuente (${session?.youtubeUrl})...`, type: 'command' });
+        steps.push({ text: `[PASO 7] Asistencia: Cruzando video vs archivo ausentismo.`, type: 'info' });
+        steps.push({ text: `[PASO 9] Votaciones: Auditando audio de Secretaría vs Video.`, type: 'warning' });
+        steps.push({ text: `   >> Alerta: Borrador cuenta 17 votos, Video cuenta 18. Marcado para observación.`, type: 'error' });
     }
 
-    steps.push({ text: `aplicando estilos: Manual_Concejo_v2026.md...`, type: 'info' });
-    steps.push({ text: `compilando documento maestro .DOCX...`, type: 'command' });
-    steps.push({ text: `PROCESO FINALIZADO CON ÉXITO.`, type: 'success' });
+    steps.push({ text: `[PASO 10] Auditoría de Estilo: Revisando Reglas 1-5 (Cifras, Cargos, Puntuación)...`, type: 'command' });
+    steps.push({ text: `   >> Regla 2 (Cifras): Corrigiendo "$2.500" a "$ 2500" en folio 12.`, type: 'success' });
+
+    steps.push({ text: `[PASO 12] Formato Imágenes: Ajustando "Detrás del texto" y centrado.`, type: 'info' });
+    steps.push({ text: `[PASO 17] Anexos: Listando proposiciones y folios.`, type: 'info' });
+    steps.push({ text: `[PASO 19] Generando Reporte de Observaciones para Digitadoras...`, type: 'command' });
+    steps.push({ text: `PROPUESTA DE ACTA LITERAL + FEEDBACK LISTO.`, type: 'success' });
 
     for (const step of steps) {
-        await new Promise(r => setTimeout(r, 600)); // Slightly faster simulation
+        await new Promise(r => setTimeout(r, 800)); // Slower to let user read steps
         setTerminalLines(prev => [...prev, step]);
     }
   };
@@ -224,7 +220,7 @@ PRESIDENTE                                SECRETARIO GENERAL
 
     try {
       const responseText = await geminiService.sendMessage(inputMessage);
-      const isProcessingRequest = inputMessage.toLowerCase().includes('proce') || inputMessage.toLowerCase().includes('sí') || inputMessage.toLowerCase().includes('ok') || inputMessage.toLowerCase().includes('fusion') || inputMessage.toLowerCase().includes('generar');
+      const isProcessingRequest = inputMessage.toLowerCase().includes('proce') || inputMessage.toLowerCase().includes('sí') || inputMessage.toLowerCase().includes('ok') || inputMessage.toLowerCase().includes('fusion') || inputMessage.toLowerCase().includes('generar') || inputMessage.toLowerCase().includes('inicio');
 
       if (isProcessingRequest) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -296,7 +292,7 @@ PRESIDENTE                                SECRETARIO GENERAL
             />
              <SidebarItem 
               icon={BookOpen} 
-              label="Manual de Estilo" 
+              label="Protocolo (19 Pasos)" 
               active={activeTab === 'rules'} 
               onClick={() => setActiveTab('rules')} 
             />
@@ -328,7 +324,7 @@ PRESIDENTE                                SECRETARIO GENERAL
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-10">
           <h1 className="text-lg font-semibold text-gray-800">
             {activeTab === 'dashboard' ? 'Resumen de Sesiones' : 
-             activeTab === 'rules' ? 'Configuración de Agente' :
+             activeTab === 'rules' ? 'Protocolo de Revisión' :
              `Agente de Actas / Sesión #${selectedSessionId || '...'}`}
           </h1>
           <div className="flex items-center gap-4">
@@ -396,60 +392,27 @@ PRESIDENTE                                SECRETARIO GENERAL
                     <BookOpen size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Parámetros del Agente (Manual de Estilo)</h2>
-                    <p className="text-gray-500 text-sm">Reglas extraídas de la documentación municipal para la generación de actas.</p>
+                    <h2 className="text-xl font-bold text-gray-900">Protocolo de 19 Pasos (Concejo de Medellín)</h2>
+                    <p className="text-gray-500 text-sm">Flujo estricto para revisión y ensamblaje de Actas Literales.</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Card 1: Puntuación */}
-                  <div className="border border-gray-100 rounded-lg p-5 bg-gray-50">
-                    <h3 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-                      <Quote size={18} className="text-blue-500" /> Puntuación y Comillas
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> Primer nivel: Comillas Inglesas “ ”</li>
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> Segundo nivel: Comillas Españolas « »</li>
-                      <li className="flex gap-2"><span className="text-red-500">✕</span> Prohibido usar comillas simples</li>
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> Punto siempre después de comillas/paréntesis</li>
-                    </ul>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-2">1. Fusión y Limpieza</h3>
+                    <p className="text-sm text-gray-600">Unificar Partes 1, 2, 3... eliminando info digitadoras y empalmes redundantes.</p>
                   </div>
-
-                  {/* Card 2: Cifras */}
-                  <div className="border border-gray-100 rounded-lg p-5 bg-gray-50">
-                    <h3 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-                      <Hash size={18} className="text-blue-500" /> Cifras y Moneda
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> $ 100 (Espacio después del signo)</li>
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> $ 3450 (4 cifras juntas)</li>
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> $ 13 450 (5+ cifras separadas)</li>
-                      <li className="flex gap-2"><span className="text-green-500">✓</span> Si dice "billones", no repetir "pesos"</li>
-                    </ul>
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-2">2-6. Metadatos y Estructura</h3>
+                    <p className="text-sm text-gray-600">Validar Portada, Títulos, Número de Acta, Fecha y Horarios Militares.</p>
                   </div>
-
-                  {/* Card 3: Cargos */}
-                  <div className="border border-gray-100 rounded-lg p-5 bg-gray-50">
-                    <h3 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-                      <Users size={18} className="text-blue-500" /> Cargos y Entidades
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Cargos en minúscula (alcalde, secretario)</li>
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Entidades en Mayúscula (Concejo, Secretaría)</li>
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Siglas >4 letras solo inicial Mayúscula (Inder)</li>
-                    </ul>
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-2">9. Auditoría de Votaciones</h3>
+                    <p className="text-sm text-gray-600">Conteo estricto (SÍ + NO == Total) y contraste con Video.</p>
                   </div>
-
-                  {/* Card 4: Estructura */}
-                  <div className="border border-gray-100 rounded-lg p-5 bg-gray-50">
-                    <h3 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-                      <FileText size={18} className="text-blue-500" /> Estructura
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Votaciones: "Votaron SÍ...", "Votó NO..."</li>
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Videos con viñeta de punto negro</li>
-                      <li className="flex gap-2"><span className="text-gray-400">•</span> Ininteligible marcado como (sic)</li>
-                    </ul>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-bold text-blue-800 mb-2">19. Observaciones para Digitadoras</h3>
+                    <p className="text-sm text-blue-700">Generar tabla de correcciones detectadas durante el contraste (Agente vs Humano).</p>
                   </div>
                 </div>
               </div>
@@ -495,33 +458,29 @@ PRESIDENTE                                SECRETARIO GENERAL
                     {msg.type === 'audit' && (
                       <div className="mt-4 bg-green-50 border border-green-100 rounded-lg p-4">
                         <div className="flex items-center gap-2 text-green-800 font-semibold text-sm mb-2">
-                          <CheckCircle2 size={16} /> Auditoría y Curaduría Completada
+                          <CheckCircle2 size={16} /> Propuesta de Acta Generada
                         </div>
                         <div className="space-y-2 text-xs text-green-700">
                           <div className="flex justify-between border-b border-green-200 pb-1">
-                            <span>Fuente Verdad:</span>
-                            <span className="font-bold text-red-600 flex items-center gap-1">
-                                {sessions.find(s => s.id === selectedSessionId)?.youtubeUrl ? (
-                                    <><Youtube size={12}/> YouTube Stream</>
-                                ) : 'Archivos Locales'}
-                            </span>
+                            <span>Tipo:</span>
+                            <span className="font-bold">Acta Literal (Propuesta)</span>
                           </div>
                           <div className="flex justify-between border-b border-green-200 pb-1">
-                             <span>Borradores Unidos:</span>
+                             <span>Contraste:</span>
                              <span className="font-mono text-gray-600">
-                                {sessions.find(s => s.id === selectedSessionId)?.transcriptFiles?.length || 0} Archivos
+                                {sessions.find(s => s.id === selectedSessionId)?.youtubeUrl ? 'Video vs Texto' : 'Solo Texto'}
                              </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Estado Final:</span>
-                            <span className="font-mono">Fusionado y Curado</span>
+                            <span>Paso 19:</span>
+                            <span className="font-bold text-red-600">Observaciones Incluidas</span>
                           </div>
                         </div>
                         <button 
                           onClick={handleDownloadDocx}
                           className="mt-3 w-full bg-green-600 text-white py-2 rounded text-xs font-medium hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2"
                         >
-                          <Download size={14} /> Descargar Acta Final (.DOCX)
+                          <Download size={14} /> Descargar Propuesta + Feedback
                         </button>
                       </div>
                     )}
@@ -533,7 +492,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                 <div className="flex justify-start">
                   <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm flex items-center gap-3">
                      <Loader2 className="animate-spin text-blue-500" size={20} />
-                     <span className="text-sm text-gray-500 animate-pulse">Fusionando partes, verificando estilo y generando documento...</span>
+                     <span className="text-sm text-gray-500 animate-pulse">Ejecutando protocolo de 19 pasos (Fusión, Auditoría, Feedback)...</span>
                   </div>
                 </div>
               )}
@@ -548,7 +507,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Escribe instrucciones (ej: 'Revisa el minuto 14 del video para confirmar la cifra')..."
+                  placeholder="Escribe instrucciones (ej: 'Inicia el protocolo', 'Verifica votación min 45')..."
                   className="flex-1 rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
                   disabled={isProcessing}
                 />
@@ -565,7 +524,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                 </button>
               </div>
               <div className="max-w-4xl mx-auto mt-2 text-center">
-                 <p className="text-[10px] text-gray-400">Gemini 3 usa el video de YouTube como referencia visual y auditiva.</p>
+                 <p className="text-[10px] text-gray-400">Gemini 3 contrasta los borradores de las digitadoras con el video oficial.</p>
               </div>
             </div>
           </div>
@@ -606,7 +565,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                                 <li key={i}>{f.name}</li>
                             ))}
                          </ul>
-                         <p className="text-[10px] text-blue-500 mt-2 text-center">El agente fusionará estos archivos en orden.</p>
+                         <p className="text-[10px] text-blue-500 mt-2 text-center">El agente fusionará estos archivos en orden (Paso 1).</p>
                        </div>
                     ) : (
                        <p className="text-xs text-gray-500">Arrastra las partes (Parte 1, Parte 2...) aquí para unificarlas.</p>
@@ -622,7 +581,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de YouTube (Fuente)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de YouTube (Fuente Verdad)</label>
                   <div className="relative">
                     <Youtube className="absolute left-3 top-2.5 text-gray-400" size={18} />
                     <input 
@@ -633,7 +592,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                       onChange={(e) => setNewSessionData({...newSessionData, youtubeUrl: e.target.value})}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Si se agrega, el agente usará el video para validar la transcripción.</p>
+                  <p className="text-xs text-gray-500 mt-1">Permite al agente contrastar los borradores con el video (Pasos 9, 19).</p>
                 </div>
 
                 <div>
@@ -647,7 +606,7 @@ PRESIDENTE                                SECRETARIO GENERAL
                           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      Literal (Verbatim)
+                      Literal (Recomendado)
                     </button>
                     <button 
                       onClick={() => setNewSessionData({...newSessionData, actaType: 'Sucinta'})}
