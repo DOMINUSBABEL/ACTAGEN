@@ -1,0 +1,5 @@
+{
+  "name": "ActaGen Agent 3.0",
+  "description": "Una interfaz agéntica impulsada por Gemini 3 para la automatización de actas municipales, ensamblaje de documentos mediante ejecución de código y auditoría en Workspace.",
+  "requestFramePermissions": []
+}
