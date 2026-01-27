@@ -21,7 +21,10 @@ import {
   ChevronRight,
   Activity,
   History,
-  FileText
+  FileText,
+  ShieldCheck,
+  Zap,
+  Info
 } from 'lucide-react';
 import { geminiService } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -52,7 +55,7 @@ const INITIAL_SESSIONS: SessionData[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'rules'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'protocol' | 'manual'>('dashboard');
   const [sessions, setSessions] = useState<SessionData[]>(INITIAL_SESSIONS);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -85,21 +88,17 @@ export default function App() {
   const handleSessionSelect = (id: string) => {
     setSelectedSessionId(id);
     setActiveTab('agent');
-    setMobileMenuOpen(false); // Close mobile menu on select
+    setMobileMenuOpen(false); 
     
     const session = sessions.find(s => s.id === id);
     const hasYoutube = !!session?.youtubeUrl;
     const transcriptCount = session?.transcriptFiles?.length || 0;
 
-    // Reset chat if selecting a new session for demo purposes
     if (chatHistory.length === 0 || selectedSessionId !== id) {
       setChatHistory([{
         id: 'welcome',
         role: 'model',
-        content: `Hola. Soy ActaGen (v3.0). He cargado el **Protocolo de 19 Pasos** y el **Manual de Estilo Completo**.\n\n` +
-                 (transcriptCount > 0 ? `📚 **Entrada**: ${transcriptCount} borradores de digitadoras detectados.\n` : '') +
-                 (hasYoutube ? `🎥 **Contraste**: URL de YouTube activa. Generaré una propuesta interna basada en el video para contrastar con los borradores.\n` : '') +
-                 `\nMi objetivo es construir una **Propuesta de Acta Literal** lo más completa posible y generar el reporte de observaciones (Paso 19).\n\n¿Inicio el protocolo de revisión y ensamblaje?`,
+        content: `**AGENTE ACTAGEN v3.0 ONLINE**\n\nHe cargado los parámetros de configuración agéntica:\n- **Precisión:** Máxima\n- **Validación:** Cruzada Video/Texto\n- **Estilo:** Manual de Estilo Concejo 2026 (Activo)\n\nDetecto ${transcriptCount} fragmentos de acta. ¿Procedo con la auditoría y fusión agéntica?`,
         timestamp: new Date(),
         type: 'text'
       }]);
@@ -128,11 +127,11 @@ export default function App() {
 
   const handleDownloadDocx = () => {
     const session = sessions.find(s => s.id === selectedSessionId);
-    const generatedContent = `[CONTENIDO DE EJEMPLO DEL ACTA...]`;
+    const generatedContent = `[CONTENIDO DE EJEMPLO DEL ACTA CON PARÁMETROS AGÉNTICOS...]`;
     const element = document.createElement("a");
     const file = new Blob([generatedContent], {type: 'application/msword'});
     element.href = URL.createObjectURL(file);
-    element.download = `PROPUESTA_ACTA_${session?.id}_CON_OBSERVACIONES.docx`;
+    element.download = `PROPUESTA_ACTA_${session?.id}_CROSSREF.docx`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -145,32 +144,27 @@ export default function App() {
     const hasYoutube = !!session?.youtubeUrl;
 
     const steps: TerminalLine[] = [
-      { text: `iniciando Protocolo de Revisión de 19 Pasos...`, type: 'info' },
+      { text: `Inicializando Kernel Agéntico con parámetros HIGH_PRECISION...`, type: 'info' },
     ];
 
     if (files.length > 0) {
-        steps.push({ text: `[PASO 1] Fusión de ${files.length} borradores. Eliminando info digitadoras y empalmes...`, type: 'command' });
+        steps.push({ text: `[PASO 1] Ejecutando AUTO_FUSION en ${files.length} fragmentos...`, type: 'command' });
         files.forEach((f, i) => {
             if (i > 0) {
-                 steps.push({ text: `   >> Empalme Parte ${i}-${i+1}: Eliminado párrafo repetido (Overlap Detection).`, type: 'success' });
+                 steps.push({ text: `   >> Sincronización exitosa entre Parte ${i} y ${i+1}. Redundancia eliminada.`, type: 'success' });
             }
         });
     }
 
-    steps.push({ text: `[PASO 2-6] Verificando Metadatos (Portada, Fecha, Horas)...`, type: 'info' });
-    
     if (hasYoutube) {
-        steps.push({ text: `[CONTRASTE] Analizando Video Fuente (${session?.youtubeUrl})...`, type: 'command' });
-        steps.push({ text: `[PASO 7] Asistencia: Cruzando video vs archivo ausentismo.`, type: 'info' });
-        steps.push({ text: `[PASO 9] Votaciones: Auditando audio de Secretaría vs Video.`, type: 'warning' });
-        steps.push({ text: `   >> Alerta: Borrador cuenta 17 votos, Video cuenta 18. Marcado para observación.`, type: 'error' });
+        steps.push({ text: `[PASO 9] Activando VIDEO_AUDIT. Escaneando URL: ${session?.youtubeUrl}...`, type: 'command' });
+        steps.push({ text: `   >> Auditoría de Votación: Detectada discrepancia de 1 voto en folio 15. Corrigiendo.`, type: 'warning' });
     }
 
-    steps.push({ text: `[PASO 10] Auditoría de Estilo: Revisando Reglas 1-5 (Cifras, Cargos, Puntuación)...`, type: 'command' });
-    steps.push({ text: `   >> Regla 2 (Cifras): Corrigiendo "$2.500" a "$ 2500" en folio 12.`, type: 'success' });
-    steps.push({ text: `[PASO 12] Formato Imágenes: Ajustando "Detrás del texto" y centrado.`, type: 'info' });
-    steps.push({ text: `[PASO 19] Generando Reporte de Observaciones para Digitadoras...`, type: 'command' });
-    steps.push({ text: `PROPUESTA DE ACTA LITERAL + FEEDBACK LISTO.`, type: 'success' });
+    steps.push({ text: `[PASO 10] Validando STYLE_COMPLIANCE (Reglas 1-5)...`, type: 'command' });
+    steps.push({ text: `   >> Normalización de cifras aplicada ($ 10 000 format).`, type: 'success' });
+    steps.push({ text: `[PASO 19] Compilando OBSERVATION_LOG detallado para el equipo.`, type: 'info' });
+    steps.push({ text: `Protocolo completado. Documento maestro agéntico listo.`, type: 'success' });
 
     for (const step of steps) {
         await new Promise(r => setTimeout(r, 600));
@@ -264,7 +258,7 @@ export default function App() {
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight text-slate-900 block leading-none">ActaGen</span>
-            <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">Concejo de Medellín</span>
+            <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">Agentic Kernel v3.0</span>
           </div>
         </div>
         
@@ -276,23 +270,30 @@ export default function App() {
             onClick={() => setActiveTab('dashboard')} 
           />
            <SidebarItem 
-            icon={BookOpen} 
+            icon={ShieldCheck} 
             label="Protocolo (19 Pasos)" 
-            active={activeTab === 'rules'} 
-            onClick={() => setActiveTab('rules')}
-            badge="Activo"
+            active={activeTab === 'protocol'} 
+            onClick={() => setActiveTab('protocol')}
+            badge="Master"
+          />
+          <SidebarItem 
+            icon={FileText} 
+            label="Manual de Estilo" 
+            active={activeTab === 'manual'} 
+            onClick={() => setActiveTab('manual')}
+            badge="Audit"
           />
           <div className="pt-4 pb-2">
-            <p className="px-4 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Gestión</p>
+            <p className="px-4 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Historial</p>
           </div>
           <SidebarItem 
-            icon={FolderOpen} 
-            label="Mis Archivos" 
+            icon={History} 
+            label="Logs de Auditoría" 
             active={false} 
           />
           <SidebarItem 
-            icon={Settings} 
-            label="Configuración" 
+            icon={FolderOpen} 
+            label="Mis Archivos" 
             active={false} 
           />
         </nav>
@@ -302,17 +303,14 @@ export default function App() {
         <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-              <Sparkles size={16} />
+              <Zap size={16} />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-800">Gemini 3.0 Pro</h4>
-              <p className="text-[10px] text-slate-500">Motor de Auditoría</p>
+              <h4 className="text-xs font-bold text-slate-800">Modo Agéntico</h4>
+              <p className="text-[10px] text-green-600 font-bold uppercase">Optimizado</p>
             </div>
           </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-            <div className="w-3/4 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-2 text-right">75% cuota mensual</p>
+          <p className="text-[10px] text-slate-500 leading-tight">Gemini 3 procesando con parámetros de validación cruzada activos.</p>
         </div>
       </div>
     </div>
@@ -321,11 +319,10 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden">
       
-      {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
-          <div className="relative w-72 h-full shadow-2xl animate-slide-in">
+          <div className="relative w-72 h-full shadow-2xl">
              <Sidebar />
              <button 
                onClick={() => setMobileMenuOpen(false)}
@@ -337,15 +334,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-[280px] flex-col h-full flex-shrink-0">
         <Sidebar />
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-full relative min-w-0 bg-white md:bg-[#F8FAFC]">
         
-        {/* Header */}
         <header className="h-16 flex-none bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <button 
@@ -354,74 +348,41 @@ export default function App() {
             >
               <Menu size={20} />
             </button>
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
-              {activeTab === 'dashboard' ? 'Resumen de Sesiones' : 
-               activeTab === 'rules' ? 'Protocolo de Revisión' : (
-               <>
-                 <span className="text-slate-400 font-normal">Agente</span>
-                 <ChevronRight size={16} className="text-slate-300" />
-                 <span>Sesión #{selectedSessionId}</span>
-               </>
-               )}
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">
+              {activeTab === 'dashboard' ? 'Centro de Control' : 
+               activeTab === 'protocol' ? 'Protocolo de 19 Pasos' : 
+               activeTab === 'manual' ? 'Manual de Estilo Municipal' : 'Auditoría Agéntica'}
             </h1>
-          </div>
-          <div className="flex items-center gap-4">
-             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-semibold border border-green-200/50 shadow-sm">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              Sistema Operativo
-            </div>
           </div>
         </header>
 
-        {/* Content Views */}
         <div className="flex-1 overflow-hidden relative">
           
-          {/* Dashboard View */}
           {activeTab === 'dashboard' && (
             <div className="h-full overflow-y-auto p-4 md:p-8 custom-scrollbar">
               <div className="max-w-6xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300">
-                    <div className="flex items-center justify-between mb-4">
-                       <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                         <FileText size={24} />
-                       </div>
-                       <span className="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-full">+12%</span>
-                    </div>
-                    <div className="text-3xl font-bold text-slate-900 mb-1">142</div>
-                    <div className="text-slate-500 text-sm font-medium">Actas Procesadas</div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="text-3xl font-bold text-slate-900">142</div>
+                    <div className="text-slate-500 text-sm font-medium">Actas Finalizadas</div>
                   </div>
-                  
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300">
-                    <div className="flex items-center justify-between mb-4">
-                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                         <Activity size={24} />
-                       </div>
-                    </div>
-                    <div className="text-3xl font-bold text-slate-900 mb-1">320h</div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="text-3xl font-bold text-slate-900">320h</div>
                     <div className="text-slate-500 text-sm font-medium">Tiempo Ahorrado</div>
                   </div>
-
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300">
-                     <div className="flex items-center justify-between mb-4">
-                       <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-                         <CheckCircle2 size={24} />
-                       </div>
-                       <span className="text-xs font-bold text-slate-400">v3.0</span>
-                    </div>
-                    <div className="text-3xl font-bold text-slate-900 mb-1">99.4%</div>
-                    <div className="text-slate-500 text-sm font-medium">Precisión Auditada</div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="text-3xl font-bold text-green-600">99.4%</div>
+                    <div className="text-slate-500 text-sm font-medium">Precisión de Estilo</div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-bold text-slate-800">Sesiones Recientes</h2>
+                  <h2 className="text-lg font-bold text-slate-800">Sesiones en Espera</h2>
                   <button 
                     onClick={() => setShowImportModal(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                    className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md"
                   >
-                    <UploadCloud size={18} />
-                    Nueva Importación
+                    Importar Borradores
                   </button>
                 </div>
 
@@ -439,135 +400,198 @@ export default function App() {
             </div>
           )}
 
-          {/* Rules View */}
-          {activeTab === 'rules' && (
-            <div className="h-full overflow-y-auto p-4 md:p-8 custom-scrollbar bg-[#F8FAFC]">
-              <div className="max-w-4xl mx-auto">
+          {activeTab === 'protocol' && (
+            <div className="h-full overflow-y-auto p-4 md:p-8 bg-[#F8FAFC] custom-scrollbar">
+              <div className="max-w-4xl mx-auto space-y-6">
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-                  <div className="flex items-center gap-4 mb-8 pb-8 border-b border-slate-100">
-                    <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 shadow-sm">
-                      <BookOpen size={32} />
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                      <ShieldCheck size={28} />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900">Protocolo de 19 Pasos</h2>
-                      <p className="text-slate-500 mt-1">Reglas de negocio estrictas para el Concejo de Medellín.</p>
+                      <h2 className="text-2xl font-bold text-slate-900">Protocolo Master</h2>
+                      <p className="text-sm text-slate-500">Configuración AGENTIC_MASTER / MULTI_MODAL_CROSSREF</p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="group p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">1</span>
-                        <h3 className="font-bold text-slate-800">Fusión y Limpieza</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                    {['AUTO_FUSION: Habilitado', 'VIDEO_AUDIT: Activo', 'STYLE_COMPLIANCE: Bloqueante', 'OBSERVATION_LOG: Detallado'].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-700">
+                        <CheckCircle2 size={14} className="text-green-500" />
+                        {item}
                       </div>
-                      <p className="text-sm text-slate-600 pl-9">Unificar Partes 1, 2, 3... eliminando info digitadoras y empalmes redundantes mediante detección de overlaps.</p>
-                    </div>
-                    
-                    <div className="group p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">9</span>
-                        <h3 className="font-bold text-slate-800">Auditoría de Votaciones</h3>
-                      </div>
-                      <p className="text-sm text-slate-600 pl-9">Conteo estricto (SÍ + NO == Total) y contraste automático con el audio/video de la sesión.</p>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div className="group p-6 bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">19</span>
-                        <h3 className="font-bold text-blue-900">Observaciones (Feedback Loop)</h3>
+                  <div className="space-y-6">
+                    {[
+                      { step: 1, title: 'Fusión y Limpieza', desc: 'Eliminación de data de digitadoras y overlaps de texto entre partes.' },
+                      { step: 2, title: 'Portada y Tipo', desc: 'Validación de No. de Acta y Modalidad (Literal/Sucinta).' },
+                      { step: 3, title: 'Metadatos', desc: 'Sincronización de Títulos, Índices y Fechas.' },
+                      { step: 7, title: 'Auditoría de Asistencia', desc: 'Cruce de Video vs. Listado de Ausentismo.' },
+                      { step: 9, title: 'Validación de Votaciones', desc: 'Sumatoria matemática de votos. Flag de error si SÍ + NO != Total.' },
+                      { step: 10, title: 'Check de Estilo', desc: 'Aplicación rigurosa del Manual de Estilo Municipal.' },
+                      { step: 12, title: 'Gestión Visual', desc: 'Ajuste de imágenes y centrado automático.' },
+                      { step: 19, title: 'Generación de Feedback', desc: 'Listado de discrepancias encontradas para mejora continua.' }
+                    ].map((step, i) => (
+                      <div key={i} className="flex gap-4 p-5 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 hover:shadow-md transition-all">
+                        <div className="flex-none w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-sm">
+                          {step.step}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-900 mb-1">{step.title}</h3>
+                          <p className="text-sm text-slate-500 leading-relaxed">{step.desc}</p>
+                        </div>
                       </div>
-                      <p className="text-sm text-blue-800 pl-9">Generación automática de tabla de hallazgos para retroalimentación directa a digitadoras.</p>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Agent View */}
+          {activeTab === 'manual' && (
+            <div className="h-full overflow-y-auto p-4 md:p-8 bg-[#F8FAFC] custom-scrollbar">
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                      <FileText size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">Manual de Estilo V3_2026</h2>
+                      <p className="text-sm text-slate-500">Directrices obligatorias de redacción y formateo municipal.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Hash size={14} /> 1. Puntuación y Comillas
+                      </h3>
+                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
+                        <p className="text-sm font-medium text-slate-700">Regla Oro: Primer nivel con comillas Inglesas (“”), segundo nivel con comillas españolas «».</p>
+                        <p className="text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 inline-block">Prohibido: El uso de comillas simples ('')</p>
+                        <p className="text-sm text-slate-500">El punto (.) siempre se sitúa posterior a cualquier signo de cierre (comillas, paréntesis, corchetes).</p>
+                      </div>
+                    </section>
+
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Hash size={14} /> 2. Cifras y Moneda
+                      </h3>
+                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                            <span className="block text-[10px] text-slate-400 font-bold mb-1">FORMATO</span>
+                            <code className="text-blue-600 font-bold">$ [espacio] [valor]</code>
+                          </div>
+                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                            <span className="block text-[10px] text-slate-400 font-bold mb-1">EJEMPLO</span>
+                            <code className="text-slate-800 font-bold">$ 13 450</code>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-500 italic">Nota: Si se usa la palabra "billones", se omite la palabra "pesos" para evitar redundancia legislativa.</p>
+                      </div>
+                    </section>
+
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Hash size={14} /> 3. Cargos y Entidades
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl">
+                          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-bold text-xs">abc</div>
+                          <p className="text-sm text-slate-700 font-medium">Minúsculas para cargos: alcalde, secretario, concejal, personero.</p>
+                        </div>
+                        <div className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl">
+                          <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold text-xs">ABC</div>
+                          <p className="text-sm text-slate-700 font-medium">Mayúsculas para instituciones: Secretaría de Educación, Concejo de Medellín.</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Hash size={14} /> 4. Estructura de Intervención
+                      </h3>
+                      <div className="bg-slate-900 p-6 rounded-2xl font-mono text-xs text-slate-300">
+                        <p className="text-blue-400 mb-2"># Formato Estándar</p>
+                        <p>Intervino el [cargo], [Nombre Completo]:</p>
+                        <p className="mt-4 text-emerald-400"># Marcas de Audio</p>
+                        <p>Ininteligible -> (sic)</p>
+                        <p>Pausas largas -> [...]</p>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'agent' && (
-            <div className="flex flex-col h-full relative bg-white md:bg-transparent">
-              {/* Chat History */}
+            <div className="flex flex-col h-full relative">
               <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 space-y-8 custom-scrollbar">
                 {chatHistory.map((msg) => (
                   <div 
                     key={msg.id} 
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`max-w-[90%] md:max-w-[75%] lg:max-w-[65%] ${
+                    <div className={`max-w-[90%] md:max-w-[70%] ${
                       msg.role === 'user' 
-                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm px-6 py-4 shadow-lg shadow-blue-200' 
-                        : 'bg-white border border-slate-100 text-slate-700 rounded-2xl rounded-tl-sm shadow-xl shadow-slate-100'
+                        ? 'bg-blue-600 text-white rounded-2xl px-6 py-4 shadow-lg' 
+                        : 'bg-white border border-slate-100 text-slate-700 rounded-2xl shadow-xl'
                     }`}>
                       {msg.role === 'model' && (
                         <div className="flex items-center gap-2 mb-3 border-b border-slate-50 pb-2">
-                          <div className="w-6 h-6 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-sm">
-                            <Sparkles size={14} className="text-white" />
-                          </div>
-                          <span className="font-bold text-xs uppercase tracking-wider text-indigo-600">
-                            Gemini 3 Agent
-                          </span>
+                          <Sparkles size={14} className="text-indigo-600" />
+                          <span className="font-bold text-xs uppercase text-indigo-600">Audit Kernal</span>
                         </div>
                       )}
-                      
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed font-normal">
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
                         {msg.content}
                       </div>
-
                       {terminalLines.length > 0 && msg.type === 'audit' && (
                           <div className="mt-4">
                             <TerminalOutput lines={terminalLines} />
                           </div>
                       )}
-
                       {msg.type === 'audit' && (
-                        <div className="mt-4 bg-green-50/50 border border-green-100 rounded-xl p-4 backdrop-blur-sm">
+                        <div className="mt-4 bg-green-50 border border-green-100 rounded-xl p-4">
                           <div className="flex items-center gap-2 text-green-800 font-bold text-sm mb-3">
-                            <CheckCircle2 size={16} className="text-green-600" /> Auditoría Completada
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-4">
-                            <div className="bg-white p-2 rounded border border-green-100">
-                               <span className="block text-[10px] text-slate-400 uppercase">Fuente</span>
-                               <span className="font-semibold text-slate-800">{sessions.find(s => s.id === selectedSessionId)?.youtubeUrl ? 'Video + Texto' : 'Solo Texto'}</span>
-                            </div>
-                            <div className="bg-white p-2 rounded border border-green-100">
-                               <span className="block text-[10px] text-slate-400 uppercase">Salida</span>
-                               <span className="font-semibold text-slate-800">Acta + Feedback</span>
-                            </div>
+                            <CheckCircle2 size={16} /> Auditoría Agéntica Exitosa
                           </div>
                           <button 
                             onClick={handleDownloadDocx}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-green-200 flex items-center justify-center gap-2"
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
                           >
-                            <Download size={14} /> Descargar Documento Final
+                            <Download size={14} /> Descargar Propuesta Consolidada
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
                 ))}
-                
                 {isProcessing && (
-                  <div className="flex justify-start animate-pulse">
-                    <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm flex items-center gap-3">
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-slate-100 rounded-2xl px-6 py-4 shadow-sm flex items-center gap-3">
                        <Loader2 className="animate-spin text-blue-600" size={18} />
-                       <span className="text-sm text-slate-500 font-medium">Procesando solicitud agéntica...</span>
+                       <span className="text-sm text-slate-500">Ejecutando parámetros de auditoría...</span>
                     </div>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Sticky Input Area */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 z-20">
-                <div className="max-w-4xl mx-auto flex gap-3 relative">
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white border-t border-slate-200">
+                <div className="max-w-4xl mx-auto flex gap-3">
                   <input 
                     type="text" 
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Escribe instrucciones para el agente..."
-                    className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm text-sm font-medium transition-all"
+                    placeholder="Comandos agénticos (ej: 'Fusión paso 1', 'Auditoría votación')..."
+                    className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 text-sm font-medium transition-all"
                     disabled={isProcessing}
                   />
                   <button 
@@ -575,71 +599,46 @@ export default function App() {
                     disabled={isProcessing || !inputMessage}
                     className={`px-6 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center ${
                       isProcessing || !inputMessage 
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-200 active:scale-95'
+                        ? 'bg-slate-100 text-slate-400' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
                     }`}
                   >
                     <Send size={20} />
                   </button>
-                </div>
-                <div className="max-w-4xl mx-auto mt-2 text-center">
-                   <p className="text-[10px] text-slate-400 font-medium flex items-center justify-center gap-1">
-                     <Users size={10} /> Gemini 3.0 Enterprise Environment
-                   </p>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Modal Nueva Importación */}
         {showImportModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowImportModal(false)}></div>
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 transform transition-all scale-100 animate-fade-in-up">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-fade-in-up">
               <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h3 className="text-xl font-bold text-slate-900">Nueva Importación</h3>
-                    <p className="text-xs text-slate-500">Configura la sesión para el agente.</p>
-                </div>
-                <button onClick={() => setShowImportModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                <h3 className="text-xl font-bold text-slate-900">Configurar Importación</h3>
+                <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Nombre de la Sesión</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Nombre Sesión</label>
                   <input 
                     type="text" 
                     placeholder="Ej: Sesión Ordinaria #350"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none text-sm"
                     value={newSessionData.name}
                     onChange={(e) => setNewSessionData({...newSessionData, name: e.target.value})}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Borradores (Partes)</label>
-                  <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 hover:border-blue-400 transition-all cursor-pointer group">
-                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-100 transition-colors">
-                        <Files className="text-blue-500" size={24} />
-                    </div>
-                    {newSessionData.transcriptFiles.length > 0 ? (
-                       <div className="text-left">
-                         <p className="text-xs font-bold text-green-600 mb-1 text-center">{newSessionData.transcriptFiles.length} Archivos listos</p>
-                         <div className="flex justify-center gap-1 mt-2">
-                             {newSessionData.transcriptFiles.map((_, i) => (
-                                 <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                             ))}
-                         </div>
-                       </div>
-                    ) : (
-                       <>
-                        <p className="text-sm font-medium text-slate-600">Click para subir borradores</p>
-                        <p className="text-xs text-slate-400 mt-1">Soporta .docx, .txt</p>
-                       </>
-                    )}
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Borradores</label>
+                  <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition-all cursor-pointer">
+                    <Files className="text-blue-500 mx-auto mb-2" size={24} />
+                    <p className="text-xs font-bold text-slate-600">{newSessionData.transcriptFiles.length ? `${newSessionData.transcriptFiles.length} Archivos` : 'Subir borradores (.docx)'}</p>
                     <input 
                       type="file" 
                       accept=".txt,.docx"
@@ -651,13 +650,13 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Enlace de YouTube</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Fuente Video</label>
                   <div className="relative">
                     <Youtube className="absolute left-4 top-3.5 text-slate-400" size={18} />
                     <input 
                       type="text" 
-                      placeholder="https://youtube.com/..."
-                      className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
+                      placeholder="URL YouTube"
+                      className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 outline-none text-sm"
                       value={newSessionData.youtubeUrl}
                       onChange={(e) => setNewSessionData({...newSessionData, youtubeUrl: e.target.value})}
                     />
@@ -668,10 +667,10 @@ export default function App() {
                   <button 
                     onClick={handleCreateSession}
                     disabled={!newSessionData.name}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center gap-2 active:scale-95"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2"
                   >
-                    <Bot size={20} />
-                    Iniciar Agente
+                    <Zap size={20} />
+                    Iniciar Auditoría
                   </button>
                 </div>
               </div>
