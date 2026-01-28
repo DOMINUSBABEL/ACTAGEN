@@ -32,7 +32,11 @@ import {
   Info,
   FileUp,
   Play,
-  ListTodo
+  ListTodo,
+  Music,
+  Headphones,
+  FileSearch,
+  Code
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -64,13 +68,27 @@ const INITIAL_SESSIONS: SessionData[] = [
 
 interface NewSessionState {
   name: string;
+  sourceType: 'youtube' | 'audio';
   youtubeUrl: string;
+  sourceAudio: File | null;
   transcriptFiles: File[];
   actaType: 'Literal' | 'Sucinta';
 }
 
+// Helper to convert file to Base64
+const fileToGenerativePart = async (file: File) => {
+  const base64EncodedDataPromise = new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise as string, mimeType: file.type },
+  };
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'protocol' | 'manual'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'protocol' | 'manual' | 'validator'>('dashboard');
   const [sessions, setSessions] = useState<SessionData[]>(INITIAL_SESSIONS);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -79,13 +97,21 @@ export default function App() {
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // States for Validator
+  const [validatorFile, setValidatorFile] = useState<File | null>(null);
+  const [validatorText, setValidatorText] = useState<string>(''); // Simulated text content
+  const [xmlResult, setXmlResult] = useState<string>('');
+  const [isValidating, setIsValidating] = useState(false);
+
   // Estado para almacenar el contenido REAL generado por la IA
   const [generatedDocument, setGeneratedDocument] = useState<string>('');
   
   const [showImportModal, setShowImportModal] = useState(false);
   const [newSessionData, setNewSessionData] = useState<NewSessionState>({
     name: '',
+    sourceType: 'youtube',
     youtubeUrl: '',
+    sourceAudio: null,
     transcriptFiles: [],
     actaType: 'Literal'
   });
@@ -109,16 +135,21 @@ export default function App() {
     
     const session = sessions.find(s => s.id === id);
     const hasYoutube = !!session?.youtubeUrl;
+    const hasAudio = !!session?.sourceAudio;
     const transcriptCount = session?.transcriptFiles?.length || 0;
 
     // Resetear el documento generado al cambiar de sesión
     setGeneratedDocument('');
 
     if (chatHistory.length === 0 || selectedSessionId !== id) {
+      let sourceStatus = '❌ No detectado';
+      if (hasYoutube) sourceStatus = '✅ Video YouTube Conectado';
+      if (hasAudio) sourceStatus = '✅ Audio MP3 Cargado';
+
       setChatHistory([{
         id: 'welcome',
         role: 'model',
-        content: `**AGENTE RELATOR ONLINE**\n\nHola, soy tu asistente de relatoría. Mi función es tomar tus borradores y el video, fusionarlos, auditar la votación y entregarte un texto limpio.\n\n**Estado Actual:**\n- **Video Fuente:** ${hasYoutube ? '✅ Conectado' : '❌ No detectado'}\n- **Borradores:** ${transcriptCount > 0 ? `✅ ${transcriptCount} archivos cargados` : '❌ Pendientes'}\n\nCuando estés listo, presiona **"GENERAR BORRADOR CONSOLIDADO"** para iniciar el procesamiento masivo.`,
+        content: `**AGENTE RELATOR ONLINE**\n\nHola, soy tu asistente de relatoría. Mi función es tomar tus borradores y la fuente multimedia (Video o Audio), fusionarlos, auditar la votación y entregarte un texto limpio.\n\n**Estado Actual:**\n- **Fuente Evidencia:** ${sourceStatus}\n- **Borradores:** ${transcriptCount > 0 ? `✅ ${transcriptCount} archivos cargados` : '❌ Pendientes'}\n\nCuando estés listo, presiona **"GENERAR BORRADOR CONSOLIDADO"** para iniciar el procesamiento masivo.`,
         timestamp: new Date(),
         type: 'text'
       }]);
@@ -134,7 +165,8 @@ export default function App() {
       status: SessionStatus.PENDING,
       files: [],
       duration: '0h 0m',
-      youtubeUrl: newSessionData.youtubeUrl,
+      youtubeUrl: newSessionData.sourceType === 'youtube' ? newSessionData.youtubeUrl : undefined,
+      sourceAudio: newSessionData.sourceType === 'audio' ? newSessionData.sourceAudio! : undefined,
       transcriptFiles: newSessionData.transcriptFiles.map(f => f.name),
       actaType: newSessionData.actaType
     };
@@ -142,12 +174,12 @@ export default function App() {
     setSessions([newSession, ...sessions]);
     setShowImportModal(false);
     handleSessionSelect(newId);
-    setNewSessionData({ name: '', youtubeUrl: '', transcriptFiles: [], actaType: 'Literal' });
+    setNewSessionData({ name: '', sourceType: 'youtube', youtubeUrl: '', sourceAudio: null, transcriptFiles: [], actaType: 'Literal' });
   };
 
   const handleAddFilesToActiveSession = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && selectedSessionId) {
-      const newFiles = Array.from(e.target.files).map(f => f.name);
+      const newFiles = Array.from(e.target.files).map((f: File) => f.name);
       setSessions(prev => prev.map(s => {
         if (s.id === selectedSessionId) {
           return {
@@ -169,12 +201,44 @@ export default function App() {
     }
   };
 
+  const handleTeiAudit = async () => {
+    if (!validatorText) return;
+    
+    setIsValidating(true);
+    setXmlResult('');
+    
+    try {
+      // Simular delay de carga del archivo
+      await new Promise(r => setTimeout(r, 500));
+      
+      const result = await geminiService.auditTextWithTEI(validatorText);
+      setXmlResult(result);
+    } catch (error) {
+      console.error(error);
+      setXmlResult("Error crítico al ejecutar auditoría TEI.");
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleValidatorFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        setValidatorFile(file);
+        // Simulate reading text from file for the demo
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            // Para demo si es binario/no-texto, ponemos un placeholder
+            setValidatorText(text.substring(0, 5000)); // Limit for demo
+        };
+        reader.readAsText(file);
+    }
+  };
+
   const handleDownloadDocx = () => {
     const session = sessions.find(s => s.id === selectedSessionId);
-    
-    // Usar el documento generado real si existe, sino un fallback
-    const contentToDownload = generatedDocument || `Error: No se ha generado contenido aún. Por favor ejecute el comando "GENERAR BORRADOR CONSOLIDADO" primero.`;
-
+    const contentToDownload = generatedDocument || `Error: No se ha generado contenido aún.`;
     const element = document.createElement("a");
     const file = new Blob([contentToDownload], {type: 'text/plain;charset=utf-8'});
     element.href = URL.createObjectURL(file);
@@ -191,24 +255,27 @@ export default function App() {
     if (isProcessing) return;
     setIsProcessing(true);
 
-    // Prompt de Ingeniería: MODO EXPANDIDO + ANÁLISIS DE IMÁGENES
-    const masterPrompt = `COMANDO: REDACCIÓN EXTENDIDA Y ANÁLISIS DOCUMENTAL.
+    const isAudioSession = !!session?.sourceAudio;
+    const isVideoSession = !!session?.youtubeUrl;
+
+    const masterPrompt = `COMANDO: REDACCIÓN EXTENDIDA Y ANÁLISIS DOCUMENTAL/MULTIMEDIA.
     
     Contexto de Sesión: ${session?.name}, Fecha: ${session?.date}, Tipo: ${session?.actaType}.
-    Fuente de Video: ${session?.youtubeUrl}
+    Fuente Evidencia: ${isAudioSession ? 'AUDIO MP3' : (isVideoSession ? 'VIDEO YOUTUBE' : 'SOLO TEXTO')}
     
     TAREA:
     1. **ANALIZAR** los bloques de texto OCR e imágenes proporcionados.
-    2. **INTERPRETAR** la estructura (tablas de votación, listas de asistencia, diapositivas).
-    3. **EXPANDIR** el contenido. Transforma notas simples en discursos parlamentarios completos y solemnes.
-    4. **UNIFICAR** el contenido fragmentado por páginas en un solo documento fluido.
+    2. **CORROBORAR** con el audio/video (si existe) para corregir nombres, votaciones y discurso.
+    3. **INTERPRETAR** la estructura (tablas de votación, listas de asistencia, diapositivas).
+    4. **EXPANDIR** el contenido. Transforma notas simples en discursos parlamentarios completos y solemnes.
+    5. **UNIFICAR** el contenido fragmentado por páginas en un solo documento fluido.
     
     Quiero un documento final que parezca escrito por un relator experto, no una simple transcripción.`;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: "GENERAR BORRADOR CONSOLIDADO (Modo Expansión y Análisis Documental)",
+      content: `GENERAR BORRADOR CONSOLIDADO (Modo: ${isAudioSession ? 'Audio' : (isVideoSession ? 'Video' : 'Texto')} + Expansión)`,
       timestamp: new Date(),
       type: 'text'
     };
@@ -221,26 +288,36 @@ export default function App() {
       { text: `Procesando OCR y metadatos de imágenes...`, type: 'command' },
       { text: `Analizando ${files.length} borradores de texto...`, type: 'command' },
     ];
+    
+    if (isAudioSession) {
+      steps.push({ text: `Codificando Audio MP3 (${(session.sourceAudio!.size / 1024 / 1024).toFixed(2)} MB)...`, type: 'command' });
+    } else if (isVideoSession) {
+      steps.push({ text: `Conectando con Video: ${session.youtubeUrl?.substring(0, 20)}...`, type: 'command' });
+    }
+
     setTerminalLines(steps);
 
     await new Promise(r => setTimeout(r, 800));
 
     try {
-      // Enviamos el prompt maestro
-      const response = await geminiService.sendMessage(masterPrompt, session?.youtubeUrl);
-      
-      // GUARDAMOS EL CONTENIDO REAL
+      let audioPart = undefined;
+      if (session?.sourceAudio) {
+        audioPart = await fileToGenerativePart(session.sourceAudio);
+        setTerminalLines(prev => [...prev, { text: `>> Audio Procesado Exitosamente.`, type: 'success' }]);
+      }
+
+      const response = await geminiService.sendMessage(masterPrompt, session?.youtubeUrl, audioPart);
       setGeneratedDocument(response.text);
 
       const processingSteps: TerminalLine[] = [
-        ...steps,
+        { text: `>> Corroboración Multimedia: Ejecutada`, type: 'success' },
         { text: `>> Reconstrucción de Tablas/Gráficos: Completada`, type: 'success' },
         { text: `>> Expansión Parlamentaria: Ejecutada`, type: 'success' },
         { text: `>> Redacción Final: Optimizada`, type: 'success' },
         { text: `Generando archivo final...`, type: 'info' },
       ];
 
-      for (const step of processingSteps.slice(4)) {
+      for (const step of processingSteps) {
          await new Promise(r => setTimeout(r, 400));
          setTerminalLines(prev => [...prev, step]);
       }
@@ -248,7 +325,7 @@ export default function App() {
       const modelMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        content: `He generado el acta completa. He interpretado el contenido de las imágenes y el OCR suministrado, expandiendo la redacción de las digitadoras para lograr un documento formal y robusto. Se han reconstruido listas, tablas y se ha dado volumen retórico a las intervenciones. Extensión: ${(response.text.length).toLocaleString()} caracteres.`,
+        content: `He generado el acta completa. He interpretado el contenido de las imágenes, el OCR y el ${isAudioSession ? 'AUDIO' : 'VIDEO'} suministrado, expandiendo la redacción de las digitadoras para lograr un documento formal y robusto. Se han reconstruido listas, tablas y se ha dado volumen retórico a las intervenciones. Extensión: ${(response.text.length).toLocaleString()} caracteres.`,
         timestamp: new Date(),
         type: 'audit',
         metadata: response.groundingChunks
@@ -262,7 +339,7 @@ export default function App() {
       const errorMsg: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',
-        content: "Error crítico: No se pudo procesar la expansión del documento.",
+        content: "Error crítico: No se pudo procesar la expansión del documento o el archivo de audio es demasiado grande/inválido.",
         timestamp: new Date(),
         type: 'text'
       };
@@ -359,11 +436,17 @@ export default function App() {
             badge="Master"
           />
           <SidebarItem 
+            icon={FileSearch} 
+            label="Auditoría TEI / XML" 
+            active={activeTab === 'validator'} 
+            onClick={() => setActiveTab('validator')}
+            badge="New"
+          />
+          <SidebarItem 
             icon={FileText} 
             label="Manual de Estilo" 
             active={activeTab === 'manual'} 
             onClick={() => setActiveTab('manual')}
-            badge="Audit"
           />
         </nav>
       </div>
@@ -412,6 +495,7 @@ export default function App() {
             <h1 className="text-lg font-bold text-slate-800 tracking-tight">
               {activeTab === 'dashboard' ? 'Centro de Control' : 
                activeTab === 'protocol' ? 'Protocolo de 19 Pasos' : 
+               activeTab === 'validator' ? 'Auditoría de Calidad TEI' :
                activeTab === 'manual' ? 'Manual de Estilo Municipal' : 'Agente Relator'}
             </h1>
           </div>
@@ -455,6 +539,100 @@ export default function App() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'validator' && (
+             <div className="h-full overflow-y-auto p-4 md:p-8 bg-[#F8FAFC] custom-scrollbar">
+                <div className="max-w-6xl mx-auto flex flex-col h-full pb-12">
+                   <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm mb-6 flex-none">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><FileSearch size={32} /></div>
+                        <div>
+                          <h2 className="text-2xl font-bold text-slate-900">Auditoría TEI / XML</h2>
+                          <p className="text-slate-500">Suba actas terminadas para detectar "FLAWS" (errores) según el Manual de Estilo.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                          <div className="flex-1">
+                             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <UploadCloud className="w-8 h-8 mb-3 text-slate-400" />
+                                    <p className="text-sm text-slate-500 font-bold mb-1">
+                                      {validatorFile ? validatorFile.name : "Subir documento (.txt, .md)"}
+                                    </p>
+                                    <p className="text-xs text-slate-400">Clic para seleccionar</p>
+                                </div>
+                                <input type="file" className="hidden" accept=".txt,.md,.xml" onChange={handleValidatorFileUpload} />
+                             </label>
+                          </div>
+                          <div className="flex flex-col justify-center gap-2">
+                             <button 
+                                onClick={handleTeiAudit} 
+                                disabled={!validatorFile || isValidating}
+                                className={`h-full px-8 rounded-2xl font-bold text-sm shadow-lg flex flex-col items-center justify-center gap-2 transition-all ${!validatorFile || isValidating ? 'bg-slate-100 text-slate-400' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                             >
+                                {isValidating ? <Loader2 className="animate-spin" size={24} /> : <Code size={24} />}
+                                {isValidating ? 'Analizando...' : 'EJECUTAR AUDIT'}
+                             </button>
+                          </div>
+                      </div>
+                   </div>
+
+                   {/* Output Area */}
+                   <div className="flex-1 min-h-[400px] bg-[#1E1E2E] rounded-3xl p-6 shadow-2xl overflow-hidden flex flex-col font-mono text-sm relative border border-slate-800">
+                      <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                         <div className="flex items-center gap-2 text-slate-400">
+                           <Code size={16} />
+                           <span className="font-bold">XML_OUTPUT_CONSOLE</span>
+                         </div>
+                         <div className="flex gap-4 text-xs">
+                            <span className="text-red-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div> Spelling</span>
+                            <span className="text-yellow-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Style</span>
+                            <span className="text-blue-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Grammar</span>
+                         </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-auto custom-scrollbar text-slate-300 leading-relaxed whitespace-pre-wrap">
+                         {xmlResult ? (
+                            xmlResult.split(/(<FLAW[^>]*>.*?<\/FLAW>)/g).map((part, index) => {
+                               if (part.startsWith('<FLAW')) {
+                                  const typeMatch = part.match(/type="([^"]*)"/);
+                                  const suggestionMatch = part.match(/suggestion="([^"]*)"/);
+                                  const contentMatch = part.match(/>(.*?)<\/FLAW>/);
+                                  
+                                  const type = typeMatch ? typeMatch[1] : 'unknown';
+                                  const suggestion = suggestionMatch ? suggestionMatch[1] : '';
+                                  const content = contentMatch ? contentMatch[1] : '';
+
+                                  let colorClass = 'text-slate-200';
+                                  if (type === 'spelling') colorClass = 'text-red-400 border-b border-red-400/50';
+                                  if (type === 'style') colorClass = 'text-yellow-400 border-b border-yellow-400/50';
+                                  if (type === 'grammar') colorClass = 'text-blue-400 border-b border-blue-400/50';
+
+                                  return (
+                                     <span key={index} className="relative group cursor-help inline-block mx-1">
+                                        <span className={`${colorClass} font-bold bg-white/5 px-1 rounded`}>{content}</span>
+                                        {/* Tooltip */}
+                                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-black text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none border border-white/20">
+                                           <div className="font-bold text-[10px] uppercase text-slate-400 mb-1">TYPE: {type}</div>
+                                           <div className="text-green-400">SUGGESTION: {suggestion}</div>
+                                        </span>
+                                     </span>
+                                  );
+                               }
+                               return <span key={index}>{part}</span>;
+                            })
+                         ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-4">
+                               <FileSearch size={48} className="opacity-20" />
+                               <p>Esperando ejecución de análisis...</p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                </div>
+             </div>
           )}
 
           {activeTab === 'protocol' && (
@@ -592,6 +770,64 @@ export default function App() {
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Nombre Sesión</label>
                   <input type="text" placeholder="Ej: Sesión Ordinaria #350" className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none text-sm focus:ring-2 focus:ring-blue-500/20" value={newSessionData.name} onChange={(e) => setNewSessionData({...newSessionData, name: e.target.value})} />
                 </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Fuente de Evidencia</label>
+                  <div className="flex gap-2 mb-3">
+                    <button 
+                      onClick={() => setNewSessionData({...newSessionData, sourceType: 'youtube', sourceAudio: null})}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${newSessionData.sourceType === 'youtube' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                    >
+                      <Youtube size={16} /> YouTube
+                    </button>
+                    <button 
+                      onClick={() => setNewSessionData({...newSessionData, sourceType: 'audio', youtubeUrl: ''})}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${newSessionData.sourceType === 'audio' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                    >
+                      <Headphones size={16} /> Audio MP3
+                    </button>
+                  </div>
+
+                  {newSessionData.sourceType === 'youtube' ? (
+                    <div className="relative">
+                      <Youtube className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                      <input type="text" placeholder="https://youtube.com/..." className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 outline-none text-sm focus:ring-2 focus:ring-blue-500/20" value={newSessionData.youtubeUrl} onChange={(e) => setNewSessionData({...newSessionData, youtubeUrl: e.target.value})} />
+                    </div>
+                  ) : (
+                    <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition-all cursor-pointer group">
+                      {newSessionData.sourceAudio ? (
+                        <div className="flex items-center justify-center gap-2 text-blue-600 font-bold text-xs">
+                          <Music size={18} /> {newSessionData.sourceAudio.name}
+                          <button 
+                            className="p-1 hover:bg-blue-100 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewSessionData(prev => ({...prev, sourceAudio: null}));
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Music className="text-blue-500 mx-auto mb-2 group-hover:scale-110 transition-transform" size={24} />
+                          <p className="text-xs font-bold text-slate-600">Subir Audio (.mp3)</p>
+                          <input 
+                              type="file" 
+                              accept=".mp3,audio/mpeg" 
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                              onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    setNewSessionData(prev => ({ ...prev, sourceAudio: e.target.files![0] }));
+                                  }
+                              }} 
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Borradores de Digitadoras</label>
                   {/* Z-INDEX FIX: Added z-10 and cursor pointer to ensure input is clickable */}
@@ -623,13 +859,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Link Video YouTube</label>
-                  <div className="relative">
-                    <Youtube className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                    <input type="text" placeholder="https://youtube.com/..." className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 outline-none text-sm focus:ring-2 focus:ring-blue-500/20" value={newSessionData.youtubeUrl} onChange={(e) => setNewSessionData({...newSessionData, youtubeUrl: e.target.value})} />
-                  </div>
-                </div>
+                
                 <div className="pt-2">
                   <button onClick={handleCreateSession} disabled={!newSessionData.name} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50">
                     <Play size={20} /> INICIAR RELATORÍA

@@ -14,6 +14,7 @@ export interface SessionData {
   transcriptFiles?: string[]; // Changed to array to support multiple parts (Part 1, Part 2, etc.)
   duration: string;
   youtubeUrl?: string;
+  sourceAudio?: File; // New field for local audio source
   actaType?: 'Literal' | 'Sucinta';
 }
 

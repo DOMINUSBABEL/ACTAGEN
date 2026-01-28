@@ -1,6 +1,6 @@
 import React from 'react';
 import { SessionData, SessionStatus } from '../types';
-import { FileVideo, MoreVertical, PlayCircle, CheckCircle, Clock, Youtube, Calendar } from 'lucide-react';
+import { FileVideo, MoreVertical, PlayCircle, CheckCircle, Clock, Youtube, Calendar, Mic } from 'lucide-react';
 
 interface SessionCardProps {
   session: SessionData;
@@ -28,6 +28,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick, acti
             {session.status === SessionStatus.COMPLETED ? <CheckCircle size={20} /> :
              session.status === SessionStatus.PROCESSING ? <Clock size={20} className="animate-pulse" /> :
              session.youtubeUrl ? <Youtube size={20} className="text-red-500" /> :
+             session.sourceAudio ? <Mic size={20} className="text-blue-500" /> :
              <FileVideo size={20} />}
           </div>
           <div>
@@ -48,7 +49,9 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick, acti
           {session.actaType || 'Literal'}
         </span>
         <span className="text-slate-300 text-xs">•</span>
-        <span className="text-xs text-slate-500 font-medium">{session.youtubeUrl ? 'Fuente YouTube' : 'Archivo Local'}</span>
+        <span className="text-xs text-slate-500 font-medium">
+          {session.youtubeUrl ? 'Fuente YouTube' : (session.sourceAudio ? 'Audio Local' : 'Archivo Local')}
+        </span>
       </div>
 
       <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
