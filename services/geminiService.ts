@@ -5,40 +5,57 @@ const SYSTEM_INSTRUCTION = `
 Eres "ActaGen", el Relator Oficial del Concejo de Medellín. TU OBJETIVO ES LA PRECISIÓN Y LA EXTENSIÓN.
 ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORMALIZADO".
 
-### PROTOCOLO DE PROCESAMIENTO DE AUDIO LARGO:
-El usuario te entregará un audio de larga duración (1 a 4 horas).
-NO INTENTES TRANSCRIBIR TODO EN UNA SOLA RESPUESTA.
-Trabajaremos por FASES. En cada turno, te pediré que proceses una parte específica de la sesión.
+### REGLAS DE ESTILO V3_2026 (MANDATORIAS):
+1. **PUNTUACIÓN Y COMILLAS:**
+   - Usa comillas INGLESAS (“...”) como principales.
+   - Usa comillas ESPAÑOLAS («...») SOLO dentro de las inglesas.
+   - El punto (.) y la coma (,) van SIEMPRE DESPUÉS de las comillas de cierre. (Ej: “Terminó la sesión”.)
+2. **CIFRAS Y MONEDA:**
+   - Formato: $ 20.000.000.000 (Puntos de mil).
+   - Opcional: "$ 20.000 millones".
+3. **MAYÚSCULAS:**
+   - CARGOS: minúscula (secretario, alcalde, concejal).
+   - ENTIDADES: Mayúscula (Secretaría de Hacienda, Concejo de Medellín).
+   - Ej: "El secretario de Hacienda dijo..."
+4. **VOTACIONES:**
+   - Resultado en número y letra: "21 (veintiún) votos".
+   - NO contar ausentes en el total.
 
-### TUS PODERES DE REDACCIÓN:
-1. **EXTENSIÓN OBLIGATORIA:** Si un concejal habla durante 10 minutos, tu redacción debe reflejar la totalidad de sus argumentos, no solo la idea central.
-2. **TONO SOLEMNE:** Transforma "dijo que la seguridad está mal" por "El Honorable Concejal manifiesta su profunda preocupación por el deterioro de los indicadores de seguridad...".
-3. **IDENTIFICACIÓN DE VOCES:** Usa el audio para identificar quién habla. Si no sabes el nombre, usa "El H.C. Interviniente".
-
-### FORMATO DE SALIDA (MARKDOWN):
-Usa títulos claros (###), negrillas para nombres y tablas para votaciones.
+### PROTOCOLO DE PROCESAMIENTO:
+- Si el audio es largo, procesa por fases sin resumir.
+- Usa tono solemne parlamentario.
+- Identifica voces con precisión.
 `;
 
 const AUDIT_SYSTEM_INSTRUCTION = `
-Eres el **AUDITOR MASTER Y EDITOR DE ACTAGEN**. Tu tarea es doble: FUSIONAR borradores fragmentados y AUDITAR el resultado final.
+Eres un **MOTOR DE AUDITORÍA DE CÓDIGO XML/TEI**.
 
-### FASE 1: FUSIÓN INTELIGENTE Y LIMPIEZA (PROTOCOLO 19 PASOS)
-Recibirás múltiples archivos (Partes de transcripción). Debes procesarlos así:
-1. **Concatenación Lógica:** Une los archivos en el orden provisto.
-2. **Eliminación de Solapamientos (Overlap):** Es CRÍTICO que detectes si el final del Archivo N se repite al inicio del Archivo N+1. Elimina la redundancia para crear una frase gramaticalmente perfecta.
-3. **Limpieza de "Basura" Editorial:** Elimina encabezados de página, números de folio originales, o marcas de software de transcripción que hayan quedado en medio del texto fusionado.
-4. **Unificación:** El texto resultante debe parecer un solo documento continuo, sin saltos abruptos.
+### TU MISIÓN CRÍTICA:
+Recibirás un fragmento de texto. DEVUÉLVELO EXACTO (VERBATIM) insertando etiquetas <FLAW> en los errores según el MANUAL V3_2026.
 
-### FASE 2: AUDITORÍA TEI / XML (MANUAL DE ESTILO V3_2026)
-Sobre el texto YA FUSIONADO y LIMPIO, ejecuta la auditoría:
-1. Envuelve errores con: <FLAW type="[tipo]" severity="[high/medium/low]" suggestion="[corrección]">texto erroneo</FLAW>
-2. Tipos de error: 
-   - 'spelling' (Ortografía)
-   - 'style' (Uso de comillas incorrectas, mayúsculas en cargos, formato de hora erróneo)
-   - 'coherence' (Frases cortadas por mala fusión)
-   - 'format' (Tablas de votación mal formadas)
+### REGLAS DE ORO (FIDELIDAD ABSOLUTA):
+1. **INTEGRIDAD TOTAL**: Devuelve el texto COMPLETO. No omitas ni una sola palabra.
+2. **SIN RESÚMENES**: Prohibido resumir. Si el texto es largo, procésalo todo.
+3. **CONTINUIDAD**: Si el fragmento empieza o termina a mitad de frase, déjalo así. No intentes completarlo.
+4. **SOLO ETIQUETAS**: Tu única modificación permitida es insertar <FLAW>...</FLAW>.
 
-IMPORTANTE: Devuelve el texto completo fusionado con las marcas XML insertadas.
+### REGLAS DE AUDITORÍA (MANUAL V3_2026):
+1. **COMILLAS**:
+   - Error: Uso de comillas simples ('') o rectas (""). -> Suggest: Inglesas (“”).
+   - Error: Punto DENTRO de comillas. -> Suggest: Punto FUERA.
+2. **VOTACIONES**:
+   - Error: Solo número ("21 votos"). -> Suggest: "21 (veintiún) votos".
+   - Error: Suma de ausentes en el total. -> Suggest: Eliminar ausentes del conteo.
+3. **CARGOS**:
+   - Error: "Secretario de Hacienda". -> Suggest: "secretario de Hacienda" (Cargo minúscula).
+   - Error: "secretaria de salud". -> Suggest: "secretaria de Salud" (Entidad mayúscula).
+4. **MONEDA**:
+   - Error: 20 mil millones. -> Suggest: $ 20.000.000.000.
+
+### SALIDA XML:
+Envuelve errores con: <FLAW type="[tipo]" severity="[high/medium]" suggestion="[corrección]">texto erroneo</FLAW>
+
+Tipos: 'spelling', 'style', 'format'.
 `;
 
 export interface GeminiResponse {
@@ -132,6 +149,25 @@ class GeminiService {
     }
   }
 
+  // Helper para fragmentar texto largo (Split & Conquer) - REDUCED CHUNK SIZE FOR SAFETY
+  private chunkText(text: string, chunkSize: number = 6000): string[] {
+    const chunks: string[] = [];
+    let currentIndex = 0;
+    while (currentIndex < text.length) {
+      let end = Math.min(currentIndex + chunkSize, text.length);
+      // Intentar cortar en un salto de línea para no romper frases
+      if (end < text.length) {
+        const nextNewLine = text.indexOf('\n', end);
+        if (nextNewLine !== -1 && nextNewLine - end < 1000) {
+            end = nextNewLine;
+        }
+      }
+      chunks.push(text.slice(currentIndex, end));
+      currentIndex = end;
+    }
+    return chunks;
+  }
+
   // Método simple para mensajes cortos
   public async sendMessage(message: string, youtubeUrl?: string, audioData?: AudioPart): Promise<GeminiResponse> {
     if (!this.chat) this.initChat();
@@ -213,50 +249,106 @@ class GeminiService {
     }
   }
 
-  // Método Multi-parte con FALLBACK inteligente
-  public async auditTextWithTEI(contents: any[]): Promise<string> {
+  // Método Multi-parte AVANZADO con Callback de Progreso
+  public async auditTextWithTEI(
+    contents: any[], 
+    onProgress?: (current: number, total: number) => void
+  ): Promise<string> {
     try {
-      // Preparamos el mensaje del usuario con todas las partes
+      // 1. Detección de contenido de texto puro
+      let allText = "";
+      let hasBinary = false;
+
+      for (const part of contents) {
+        if (part.text) {
+          // Extraemos el texto crudo, limpiando etiquetas previas si las hay
+          let cleanText = part.text.replace(/^\[ARCHIVO.*?\]\n/, ''); 
+          allText += cleanText + "\n";
+        } else if (part.inlineData) {
+          hasBinary = true;
+        }
+      }
+
+      // 2. Estrategia de "Split & Conquer" para texto puro
+      // Ahora incluye PDFs gracias a la extracción en cliente.
+      if (!hasBinary && allText.length > 0) {
+        // Reducido a 6000 caracteres (aprox 1.5k tokens) para máxima seguridad de output.
+        // Esto evita cortes abruptos en el output de 8k tokens.
+        const chunks = this.chunkText(allText, 6000); 
+        console.log(`[Audit] Split document into ${chunks.length} chunks to prevent summarization.`);
+        
+        const results = [];
+        
+        // Procesamos secuencialmente para no saturar la cuota
+        for (let i = 0; i < chunks.length; i++) {
+             const chunk = chunks[i];
+             
+             if (onProgress) {
+                 onProgress(i + 1, chunks.length);
+             }
+
+             const prompt = `[FRAGMENTO ${i+1}/${chunks.length} DEL DOCUMENTO TOTAL]
+             
+             INSTRUCCIÓN ÚNICA: Audita este fragmento de texto aplicando etiquetas <FLAW>.
+             - NO RESUMAS. Devuelve el texto íntegro letra por letra.
+             - Si el fragmento corta una frase, devuélvela cortada (se completará en el siguiente bloque).
+             
+             TEXTO A AUDITAR:
+             ${chunk}`;
+
+             // Usamos temperature 0 para determinismo absoluto
+             const response = await this.generateWithFallback(
+                {
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    config: {
+                        systemInstruction: AUDIT_SYSTEM_INSTRUCTION,
+                        temperature: 0.0, 
+                        maxOutputTokens: 8192,
+                    }
+                },
+                'gemini-3-flash-preview',
+                'gemini-flash-latest'
+             );
+             results.push(response.text || "");
+        }
+        
+        return results.join(""); // Join sin saltos extra para continuidad
+      }
+
+      // Fallback para binarios no procesables (no debería ocurrir con PDF ahora)
       const userMessage = {
         role: 'user',
         parts: [
-          { text: "Por favor, FUSIONA estos borradores en un solo documento continuo, elimina redundancias en los empalmes y luego EJECUTA LA AUDITORÍA XML sobre el resultado." },
+          { text: "INSTRUCCIÓN CRÍTICA: NO RESUMAS. Si el documento es muy largo, procesa hasta donde alcances con máxima fidelidad." },
           ...contents
         ]
       };
 
-      const params = {
-        contents: [userMessage],
-        config: {
-          systemInstruction: AUDIT_SYSTEM_INSTRUCTION,
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-        }
-      };
-
-      // ESTRATEGIA: Intentar Gemini 3 (Primary) -> Fallback a Gemini Flash Latest (Stable)
-      // 'gemini-flash-latest' suele ser la versión estable más robusta (actualmente 1.5 o 2.5) con mejores cuotas.
       const response = await this.generateWithFallback(
-        params,
+        {
+            contents: [userMessage],
+            config: {
+                systemInstruction: AUDIT_SYSTEM_INSTRUCTION,
+                temperature: 0.0,
+                maxOutputTokens: 8192,
+            }
+        },
         'gemini-3-flash-preview', 
         'gemini-flash-latest' 
       );
 
       return response.text || "No se pudo generar el análisis XML.";
+
     } catch (error: any) {
       console.error("Error en auditoría TEI:", error);
       
       let errorMsg = error.message || JSON.stringify(error);
       if (this.isQuotaError(error)) {
-        return `⚠️ **SISTEMA SATURADO (ERROR 429 PERSISTENTE):**
+        return `⚠️ **SISTEMA SATURADO (ERROR 429):**
         
-        Se agotaron todos los intentos (Primary + Fallback) debido a límites de cuota de Google.
+        El documento es demasiado extenso para procesarlo de una sola vez con la cuota actual.
         
-        **Posibles Causas:**
-        - El volumen de texto/archivos es demasiado grande para un solo request (> 1 Millón de tokens).
-        - La cuenta de facturación tiene un límite estricto.
-        
-        **Solución:** Intente subir los archivos de uno en uno o reduzca su tamaño.`;
+        **Solución:** El sistema está intentando fragmentarlo automáticamente. Si este error persiste, espere un minuto.`;
       }
       return `Error de Análisis: ${errorMsg}`;
     }

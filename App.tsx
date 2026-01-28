@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
 import { 
   LayoutDashboard, 
   Bot,
@@ -30,6 +31,16 @@ import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
 import { SessionCard } from './components/SessionCard';
 import { TerminalOutput } from './components/TerminalOutput';
 import { FileUploader } from './components/FileUploader';
+
+// Configure PDF.js worker
+// Fix for ESM/CJS interop with pdfjs-dist: resolve the correct object
+const pdfjs = (pdfjsLib as any).default || pdfjsLib;
+
+if (pdfjs.GlobalWorkerOptions) {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+} else {
+  console.warn("PDF.js GlobalWorkerOptions not found. PDF extraction may fail.");
+}
 
 const INITIAL_SESSIONS: SessionData[] = [
   {
@@ -75,6 +86,28 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
+// Helper to extract text from PDF
+const extractTextFromPDF = async (file: File): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    // Use the resolved pdfjs object instead of the import namespace directly
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    
+    // Iterate over all pages
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += `\n[PÁGINA ${i}]\n${pageText}\n`;
+    }
+    return fullText;
+  } catch (error) {
+    console.error("PDF Extraction Failed:", error);
+    throw error;
+  }
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'protocol' | 'manual' | 'validator'>('dashboard');
   const [sessions, setSessions] = useState<SessionData[]>(INITIAL_SESSIONS);
@@ -91,6 +124,7 @@ export default function App() {
   const [validatorParts, setValidatorParts] = useState<any[]>([]); // Array of API parts
   const [xmlResult, setXmlResult] = useState<string>('');
   const [isValidating, setIsValidating] = useState(false);
+  const [auditProgress, setAuditProgress] = useState<{current: number, total: number}>({ current: 0, total: 0 });
 
   const [generatedDocument, setGeneratedDocument] = useState<string>('');
   
@@ -173,11 +207,14 @@ export default function App() {
     
     setIsValidating(true);
     setXmlResult(''); 
+    setAuditProgress({ current: 0, total: 0 });
     
     try {
       await new Promise(r => setTimeout(r, 500));
       // Send the array of parts (files)
-      const result = await geminiService.auditTextWithTEI(validatorParts);
+      const result = await geminiService.auditTextWithTEI(validatorParts, (current, total) => {
+          setAuditProgress({ current, total });
+      });
       setXmlResult(result);
     } catch (error) {
       console.error(error);
@@ -187,37 +224,47 @@ export default function App() {
     }
   };
 
+  const handleDownloadXml = () => {
+    if (!xmlResult) return;
+    const blob = new Blob([xmlResult], { type: 'text/xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `AUDITORIA_TEI_${new Date().getTime()}.xml`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleValidatorFileUpload = async (files: File[]) => {
     if (files && files.length > 0) {
-        // Append new files to existing ones or replace? For simplicity, we add them.
         const updatedFiles = [...validatorFiles, ...files];
         setValidatorFiles(updatedFiles);
         setXmlResult(''); 
         
-        // Process ALL files into parts
         const newParts: any[] = [];
+        
+        // We now process files sequentially to handle extraction correctly
         for (const file of files) {
+             // STRATEGY CHANGE: Extract text from PDF client-side to allow chunking
              if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
                  try {
-                     const base64Data = await new Promise((resolve, reject) => {
+                     const extractedText = await extractTextFromPDF(file);
+                     newParts.push({ text: `[ARCHIVO PDF EXTRAÍDO: ${file.name}]\n${extractedText}` });
+                 } catch (e) { 
+                     console.error("PDF Text Extraction Error", e);
+                     // Fallback to binary if extraction fails (though extraction is preferred)
+                     const base64Data = await new Promise((resolve) => {
                         const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const res = reader.result as string;
-                            if (res) resolve(res.split(',')[1]);
-                            else reject("Empty file");
-                        }
-                        reader.onerror = reject;
+                        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                         reader.readAsDataURL(file);
                      });
                      newParts.push({
-                        inlineData: {
-                            data: base64Data,
-                            mimeType: 'application/pdf'
-                        }
+                        inlineData: { data: base64Data, mimeType: 'application/pdf' }
                      });
-                 } catch (e) { console.error("PDF Error", e); }
+                 }
             } else {
-                // Text/XML/Code
+                // Text/XML/Code/DOCX (treated as text for now, ideally convert docx to text too)
                 const text = await new Promise((resolve) => {
                      const reader = new FileReader();
                      reader.onload = (e) => resolve(e.target?.result as string);
@@ -227,7 +274,6 @@ export default function App() {
             }
         }
         
-        // Accumulate parts
         setValidatorParts(prev => [...prev, ...newParts]);
     }
   };
@@ -236,6 +282,7 @@ export default function App() {
       setValidatorFiles([]);
       setValidatorParts([]);
       setXmlResult('');
+      setAuditProgress({ current: 0, total: 0 });
   };
 
   const handleDownloadDocx = () => {
@@ -336,7 +383,7 @@ export default function App() {
                                 multiple={true} // Enable multiple files
                                 onFilesSelected={handleValidatorFileUpload}
                                 label="Cargar Múltiples Borradores"
-                                subLabel="Soporta DOCX, PDF, TXT (Parte 1, Parte 2...)"
+                                subLabel="Soporta PDF (extracción auto), DOCX, TXT"
                                 icon={FileSearch}
                              />
                              {validatorFiles.length > 0 && (
@@ -369,7 +416,13 @@ export default function App() {
                            <Code size={16} />
                            <span className="font-bold">TEI_XML_OUTPUT_CONSOLE</span>
                          </div>
-                         <div className="flex gap-4 text-xs">
+                         <div className="flex gap-4 text-xs items-center">
+                            {xmlResult && (
+                                <button onClick={handleDownloadXml} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1 transition-colors">
+                                    <Download size={12} />
+                                    XML/TEI
+                                </button>
+                            )}
                             <span className="text-red-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div> Spelling</span>
                             <span className="text-yellow-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Style</span>
                             <span className="text-blue-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Consistency</span>
@@ -411,7 +464,20 @@ export default function App() {
                                {isValidating ? (
                                    <>
                                       <Loader2 size={48} className="text-purple-500 animate-spin mb-4" />
-                                      <p className="text-slate-400">El Agente está unificando borradores y auditando...</p>
+                                      {auditProgress.total > 0 && (
+                                        <div className="flex flex-col items-center gap-2 mt-2">
+                                            <div className="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-purple-500 transition-all duration-300"
+                                                    style={{ width: `${(auditProgress.current / auditProgress.total) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                            <p className="text-xs text-slate-400 font-bold">
+                                                PROCESANDO BLOQUE {auditProgress.current} DE {auditProgress.total}
+                                            </p>
+                                        </div>
+                                      )}
+                                      <p className="text-slate-400 mt-2">Extrayendo texto y aplicando auditoría secuencial...</p>
                                    </>
                                ) : (
                                    <>
