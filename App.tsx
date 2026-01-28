@@ -420,7 +420,7 @@ export default function App() {
                             {xmlResult && (
                                 <button onClick={handleDownloadXml} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1 transition-colors">
                                     <Download size={12} />
-                                    XML/TEI
+                                    Exportar XML/TEI Completo
                                 </button>
                             )}
                             <span className="text-red-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div> Spelling</span>
