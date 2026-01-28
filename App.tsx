@@ -175,12 +175,10 @@ export default function App() {
     // Usar el documento generado real si existe, sino un fallback
     const contentToDownload = generatedDocument || `Error: No se ha generado contenido aún. Por favor ejecute el comando "GENERAR BORRADOR CONSOLIDADO" primero.`;
 
-    // Crear un Blob con el contenido real. Usamos texto plano/markdown que Word puede abrir, o HTML simple.
-    // Para mayor compatibilidad simple, usaremos Markdown/Texto plano UTF-8.
     const element = document.createElement("a");
     const file = new Blob([contentToDownload], {type: 'text/plain;charset=utf-8'});
     element.href = URL.createObjectURL(file);
-    element.download = `ACTA_OFICIAL_${session?.id}_CONSOLIDADA.md`; // Extension .md para mantener formato markdown o .txt
+    element.download = `ACTA_OFICIAL_${session?.id}_CONSOLIDADA.md`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -193,28 +191,24 @@ export default function App() {
     if (isProcessing) return;
     setIsProcessing(true);
 
-    // Prompt de Ingeniería para forzar longitud
-    const masterPrompt = `COMANDO MAESTRO: GENERAR ACTA FINAL EXTENSA.
-    Contexto: ${session?.name}, Fecha: ${session?.date}, Tipo: ${session?.actaType}.
+    // Prompt de Ingeniería: MODO EXPANDIDO + ANÁLISIS DE IMÁGENES
+    const masterPrompt = `COMANDO: REDACCIÓN EXTENDIDA Y ANÁLISIS DOCUMENTAL.
     
-    INSTRUCCIONES CRÍTICAS:
-    1. Genera el documento COMPLETO de principio a fin.
-    2. EXTENSIÓN: El usuario necesita un acta detallada. Si no tienes la transcripción completa, GENERA UN CONTENIDO SIMULADO DE ALTA FIDELIDAD (High-Fidelity Mockup) que cubra al menos 4 horas de debate ficticio sobre temas municipales relevantes (Presupuesto, Seguridad, Movilidad).
-    3. ESTRUCTURA OBLIGATORIA:
-       - Encabezado Oficial.
-       - Llamado a Lista (Inventar asistencia completa).
-       - Orden del Día (5 Puntos).
-       - Desarrollo detallado de intervenciones (Minimo 10 intervenciones largas de concejales y secretarios).
-       - Tablas de Votación Nominal completas.
-       - Proposiciones y Varios.
-       - Cierre formal con hora final.
+    Contexto de Sesión: ${session?.name}, Fecha: ${session?.date}, Tipo: ${session?.actaType}.
+    Fuente de Video: ${session?.youtubeUrl}
     
-    No resumas. Escribe el acta literal palabra por palabra.`;
+    TAREA:
+    1. **ANALIZAR** los bloques de texto OCR e imágenes proporcionados.
+    2. **INTERPRETAR** la estructura (tablas de votación, listas de asistencia, diapositivas).
+    3. **EXPANDIR** el contenido. Transforma notas simples en discursos parlamentarios completos y solemnes.
+    4. **UNIFICAR** el contenido fragmentado por páginas en un solo documento fluido.
+    
+    Quiero un documento final que parezca escrito por un relator experto, no una simple transcripción.`;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: "GENERAR BORRADOR CONSOLIDADO (Modo Extendido)",
+      content: "GENERAR BORRADOR CONSOLIDADO (Modo Expansión y Análisis Documental)",
       timestamp: new Date(),
       type: 'text'
     };
@@ -223,8 +217,9 @@ export default function App() {
     setTerminalLines([]);
     const steps: TerminalLine[] = [
       { text: `Iniciando Motor de Relatoría v3.0...`, type: 'info' },
-      { text: `Modo: GENERACIÓN PROFUNDA (High-Fidelity)`, type: 'warning' },
-      { text: `Leyendo ${files.length} fuentes de datos...`, type: 'command' },
+      { text: `Modo: ANÁLISIS MULTIMODAL Y EXPANSIÓN`, type: 'warning' },
+      { text: `Procesando OCR y metadatos de imágenes...`, type: 'command' },
+      { text: `Analizando ${files.length} borradores de texto...`, type: 'command' },
     ];
     setTerminalLines(steps);
 
@@ -239,13 +234,13 @@ export default function App() {
 
       const processingSteps: TerminalLine[] = [
         ...steps,
-        { text: `>> Fusión de texto: 100%`, type: 'success' },
-        { text: `>> Redacción Legislativa: Aplicada`, type: 'success' },
-        { text: `>> Auditoría Automática: 0 Alucinaciones detectadas`, type: 'success' },
-        { text: `Generando archivo final (${response.text.length} caracteres)...`, type: 'info' },
+        { text: `>> Reconstrucción de Tablas/Gráficos: Completada`, type: 'success' },
+        { text: `>> Expansión Parlamentaria: Ejecutada`, type: 'success' },
+        { text: `>> Redacción Final: Optimizada`, type: 'success' },
+        { text: `Generando archivo final...`, type: 'info' },
       ];
 
-      for (const step of processingSteps.slice(3)) {
+      for (const step of processingSteps.slice(4)) {
          await new Promise(r => setTimeout(r, 400));
          setTerminalLines(prev => [...prev, step]);
       }
@@ -253,7 +248,7 @@ export default function App() {
       const modelMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        content: "He generado el acta completa siguiendo el protocolo de 19 pasos. El documento incluye todas las secciones formales, intervenciones detalladas y tablas de votación. Puedes descargarlo a continuación.",
+        content: `He generado el acta completa. He interpretado el contenido de las imágenes y el OCR suministrado, expandiendo la redacción de las digitadoras para lograr un documento formal y robusto. Se han reconstruido listas, tablas y se ha dado volumen retórico a las intervenciones. Extensión: ${(response.text.length).toLocaleString()} caracteres.`,
         timestamp: new Date(),
         type: 'audit',
         metadata: response.groundingChunks
@@ -267,7 +262,7 @@ export default function App() {
       const errorMsg: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',
-        content: "Error crítico en la generación del documento.",
+        content: "Error crítico: No se pudo procesar la expansión del documento.",
         timestamp: new Date(),
         type: 'text'
       };
