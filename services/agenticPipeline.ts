@@ -7,6 +7,7 @@
  */
 
 import { geminiService } from './geminiService';
+import { callGeminiForStep, formatVoteResult } from './geminiPipelineService';
 import { 
   PipelineStep, 
   ThoughtLine, 

@@ -11,12 +11,14 @@ import {
   Download, 
   RefreshCw,
   FileText,
-  AlertCircle
+  AlertCircle,
+  FlaskConical  // Para datos de prueba
 } from 'lucide-react';
 import { AgentReasoningTerminal } from './AgentReasoningTerminal';
 import { useAgenticPipeline } from '../hooks/useAgenticPipeline';
 import { FileUploader } from './FileUploader';
 import { PipelineInput } from '../services/agenticPipeline';
+import { ACTA_348_FRAGMENTS, createActa348TestInput } from '../testdata/testDataLoader';
 
 interface PipelineTabProps {
   sessionId?: string;
@@ -34,6 +36,15 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [generatedDocument, setGeneratedDocument] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // NUEVO: Cargar datos de prueba del Acta 348
+  const handleLoadTestData = useCallback(() => {
+    const fragments = ACTA_348_FRAGMENTS;
+    setUploadedFiles(fragments.map(f => ({ name: f.name } as File)));
+    setTranscriptContents(fragments.map(f => f.content));
+    setError(null);
+    setGeneratedDocument('');
+  }, []);
 
   const handleFilesSelected = useCallback(async (files: File[]) => {
     setUploadedFiles(prev => [...prev, ...files]);
@@ -165,6 +176,15 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subLabel="Fragmentos de la sesión (Parte 1, Parte 2...)"
                 icon={FileUp}
               />
+              
+              {/* Botón de datos de prueba */}
+              <button
+                onClick={handleLoadTestData}
+                className="w-full mt-2 px-4 py-2 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+              >
+                <FlaskConical size={16} />
+                Cargar Datos de Prueba (Acta 348)
+              </button>
               
               {uploadedFiles.length > 0 && (
                 <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
