@@ -3,7 +3,7 @@
  * Nueva pestaña para ejecutar el Kernel 19 Pasos con visualización de razonamiento
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Play, 
   FileUp, 
@@ -12,9 +12,11 @@ import {
   RefreshCw,
   FileText,
   AlertCircle,
-  FlaskConical  // Para datos de prueba
+  FlaskConical,  // Para datos de prueba
+  Activity
 } from 'lucide-react';
 import { AgentReasoningTerminal } from './AgentReasoningTerminal';
+import { AgentMetricsPanel, createInitialMetrics, AgentMetrics } from './AgentMetricsPanel';
 import { useAgenticPipeline } from '../hooks/useAgenticPipeline';
 import { FileUploader } from './FileUploader';
 import { PipelineInput } from '../services/agenticPipeline';
@@ -32,10 +34,65 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   const { state, isRunning, startPipeline, resetPipeline, exportLog } = useAgenticPipeline(sessionName);
   
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [metrics, setMetrics] = useState<AgentMetrics>(createInitialMetrics());
+  const [showMetrics, setShowMetrics] = useState(true);
   const [transcriptContents, setTranscriptContents] = useState<string[]>([]);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [generatedDocument, setGeneratedDocument] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Sincronizar métricas con el estado del pipeline
+  useEffect(() => {
+    const completedSteps = state.steps.filter(s => s.status === 'success').length;
+    const currentStep = state.steps.find(s => s.status === 'running');
+    const errorSteps = state.steps.filter(s => s.status === 'error').length;
+    
+    // Calcular tokens estimados (basado en thoughts)
+    const tokensEstimate = state.globalThoughts.reduce((acc, t) => {
+      return acc + (t.metadata?.tokens || Math.ceil(t.content.length / 4));
+    }, 0);
+    
+    // Calcular tiempo transcurrido
+    const firstThought = state.globalThoughts[0];
+    const startTime = firstThought?.timestamp || null;
+    const elapsedMs = startTime ? Date.now() - startTime.getTime() : 0;
+    
+    // Calcular pasos por minuto
+    const elapsedMinutes = elapsedMs / 60000;
+    const stepsPerMinute = elapsedMinutes > 0 ? completedSteps / elapsedMinutes : 0;
+    
+    // Estimar tiempo restante
+    const avgStepDuration = completedSteps > 0 ? elapsedMs / completedSteps : 30000;
+    const remainingSteps = state.totalSteps - completedSteps;
+    const estimatedRemaining = remainingSteps * avgStepDuration;
+    
+    setMetrics(prev => ({
+      ...prev,
+      tokensInput: Math.round(tokensEstimate * 0.7),
+      tokensOutput: Math.round(tokensEstimate * 0.3),
+      tokensTotal: tokensEstimate,
+      tokensCost: tokensEstimate * 0.000001, // Estimación muy básica
+      startTime,
+      currentTime: new Date(),
+      elapsedMs,
+      avgStepDurationMs: avgStepDuration,
+      estimatedRemainingMs: estimatedRemaining,
+      stepsCompleted: completedSteps,
+      stepsTotal: state.totalSteps,
+      stepsPerMinute,
+      successRate: state.totalSteps > 0 
+        ? ((completedSteps / (completedSteps + errorSteps)) * 100) || 100 
+        : 100,
+      promptsSent: state.globalThoughts.filter(t => t.type === 'action').length,
+      responsesReceived: state.globalThoughts.filter(t => t.type === 'observation').length,
+      errorsCount: state.globalThoughts.filter(t => t.type === 'error').length,
+      retriesCount: 0,
+      contextWindowUsed: tokensEstimate,
+      isRunning: state.isRunning,
+      currentPhase: currentStep?.phase || null,
+      currentStepName: currentStep?.name || '',
+    }));
+  }, [state]);
 
   // NUEVO: Cargar datos de prueba del Acta 348
   const handleLoadTestData = useCallback(() => {
@@ -145,6 +202,18 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
             </div>
             
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowMetrics(!showMetrics)}
+                className={`px-4 py-2 rounded-xl border flex items-center gap-2 text-sm font-medium transition-colors ${
+                  showMetrics 
+                    ? 'border-cyan-300 bg-cyan-50 text-cyan-700' 
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Activity size={16} />
+                Métricas
+              </button>
+              
               <button
                 onClick={handleClearFiles}
                 className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2 text-sm font-medium transition-colors"
@@ -258,6 +327,14 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Agent Metrics Panel */}
+        {showMetrics && (
+          <AgentMetricsPanel 
+            metrics={metrics}
+            onRefresh={() => setMetrics(createInitialMetrics())}
+          />
+        )}
 
         {/* Agent Reasoning Terminal */}
         <AgentReasoningTerminal 

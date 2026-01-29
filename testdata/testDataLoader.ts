@@ -1,190 +1,275 @@
 /**
- * TEST DATA LOADER
- * Carga automática de datos de prueba del Acta 348
+ * TEST DATA LOADER - ACTA 348
+ * Datos de prueba basados en el formato real del Concejo de Medellín
+ * Concejales: Período 2024-2027 (lista oficial)
  */
 
-// Fragmentos del Acta 348 para pruebas
+// Lista oficial de concejales del período 2024-2027
+export const CONCEJALES_2024_2027 = [
+  { nombre: 'Sebastián López Valencia', bancada: 'Centro Democrático', cargo: 'presidente' },
+  { nombre: 'Santiago Perdomo Montoya', bancada: 'Creemos' },
+  { nombre: 'Carlos Alberto Gutiérrez Bustamante', bancada: 'Conservador' },
+  { nombre: 'Andrés Felipe Tobón Villada', bancada: 'Centro Democrático' },
+  { nombre: 'María Paulina Suárez Roldán', bancada: 'Creemos' },
+  { nombre: 'Alejandro De Bedout Arango', bancada: 'Creemos' },
+  { nombre: 'Juan Carlos de la Cuesta Galvis', bancada: 'Creemos' },
+  { nombre: 'Santiago Narváez Lombana', bancada: 'Creemos' },
+  { nombre: 'Damián Pérez Arroyave', bancada: 'Creemos' },
+  { nombre: 'Camila Gaviria Barreneche', bancada: 'Creemos' },
+  { nombre: 'Janeth Hurtado Betancur', bancada: 'Creemos' },
+  { nombre: 'Farley Jhaír Macías Betancur', bancada: 'Liberal' },
+  { nombre: 'José Luis Marín Mora', bancada: 'Polo Democrático' },
+  { nombre: 'Alejandro Arias García', bancada: 'Alianza Verde' },
+  { nombre: 'Miguel Ángel Iguarán Osorio', bancada: 'Coalición Juntos' },
+  { nombre: 'Juan Ramón Jiménez Lara', bancada: 'ASI' },
+  { nombre: 'Brisvani Alexis Arenas Suaza', bancada: 'Conservador' },
+  { nombre: 'Leticia Orrego Pérez', bancada: 'Centro Democrático' },
+  { nombre: 'Andrés Felipe Rodríguez Puerta', bancada: 'Independiente' },
+  { nombre: 'Claudia Victoria Carrasquilla Minami', bancada: 'Creemos' },
+  { nombre: 'Luis Guillermo de Jesús Vélez Álvarez', bancada: 'Centro Democrático' },
+];
+
+// Fragmentos del Acta 348 para pruebas (citación sobre seguridad ciudadana)
 export const ACTA_348_FRAGMENTS = [
   {
     name: 'fragmento_01_encabezado.txt',
-    content: `# FRAGMENTO 1 - ACTA 348
-# Encabezado y Llamado a Lista
+    content: `# ACTA DE SESIÓN PLENARIA No. 348
+## MODALIDAD: ORDINARIA
 
 CONCEJO DE MEDELLÍN
-ACTA DE SESIÓN ORDINARIA No. 348
-
-FECHA: 27 de enero de 2026
-HORA DE INICIO: 08:30 a. m.
-LUGAR: Recinto de Sesiones "Bernardo Guerra Serna", Medellín.
+PERÍODO 2024-2027
 
 ---
 
-## 1. ENCABEZADO Y APERTURA
-
-En la ciudad de Medellín, siendo las ocho y treinta de la mañana (08:30 a. m.) del día martes veintisiete (27) de enero del año dos mil veintiséis (2026), se dio inicio a la Sesión Ordinaria número 348 del Honorable Concejo de Medellín, atendiendo a la citación efectuada por la Mesa Directiva para dar trámite a los asuntos de control político y discusión de proyectos de acuerdo programados para la fecha.
-
-Preside la sesión el Honorable Concejal y Presidente de la Corporación, quien ordena al Secretario General proceder con el llamado a lista y verificación del cuórum.
+**FECHA:** Martes, 27 de enero de 2026
+**HORA DE INICIO:** 09:00 a. m.
+**HORA DE FINALIZACIÓN:** 01:45 p. m.
+**LUGAR:** Recinto de Sesiones "Bernardo Guerra Serna", Centro Administrativo La Alpujarra, Medellín.
 
 ---
 
-## 2. LLAMADO A LISTA Y VERIFICACIÓN DEL CUÓRUM
+## 1. LLAMADO A LISTA Y VERIFICACIÓN DEL QUÓRUM
 
-El Secretario General procede a realizar el llamado a lista de los veintiún (21) concejales de la ciudad:
+Siendo las nueve de la mañana (09:00 a. m.) del día martes veintisiete (27) de enero del año dos mil veintiséis (2026), el señor presidente del Concejo, honorable concejal Sebastián López Valencia, declara abierta la sesión e instruye al secretario general para que proceda con el llamado a lista.
 
-| Honorable Concejal | Estado |
-| :--- | :--- |
-| AGUDELO RAMÍREZ, Carlos Alberto | Presente |
-| ARANGO URIBE, María Victoria | Presente |
-| BEDOYA LÓPEZ, Juan Felipe | Presente |
-| CARVALHO MEJÍA, Daniel | Presente |
-| CORREA LÓPEZ, Luis Bernardo | Presente |
-| CUARTAS OCHOA, Lucas | Presente |
-| ECHAVARRÍA SÁNCHEZ, Andrés | Presente |
-| FLÓREZ HERNÁNDEZ, Alex | Presente |
-| GAVIRIA CORREA, Santiago | Presente |
-| GUERRA HOYOS, Bernardo Alejandro | Presente |
-| HENRÍQUEZ GALLO, Luis Carlos | Presente |
-| JIMÉNEZ GÓMEZ, Sebastián | Presente |
-| LONDOÑO SOTO, Daniela | Presente |
-| MEJÍA ALVARADO, Claudia | Presente |
-| MONCADA VALENCIA, Simón | Presente |
-| PELÁEZ ARANGO, Alfredo | Presente |
-| QUINTERO CALLE, Juan Carlos | Presente |
-| RIVERA RIVERA, Nataly | Presente |
-| TOBÓN ECHEVERRI, Fabio | Presente |
-| URIBE VÉLEZ, José Luis | Presente |
-| ZAPATA LOPERA, Gloria | Presente |
+El secretario general, doctor Juan Fernando Sánchez Vélez, realiza el llamado:
 
-**Secretario General:** "Señor Presidente, le informo que contamos con la presencia de los veintiún (21) Honorables Concejales en el recinto. Existe cuórum reglamentario para deliberar y decidir".`
+| HONORABLE CONCEJAL | ASISTENCIA |
+|:---|:---:|
+| LÓPEZ VALENCIA, Sebastián | ✓ |
+| PERDOMO MONTOYA, Santiago | ✓ |
+| GUTIÉRREZ BUSTAMANTE, Carlos Alberto | ✓ |
+| TOBÓN VILLADA, Andrés Felipe | ✓ |
+| SUÁREZ ROLDÁN, María Paulina | ✓ |
+| DE BEDOUT ARANGO, Alejandro | ✓ |
+| DE LA CUESTA GALVIS, Juan Carlos | ✓ |
+| NARVÁEZ LOMBANA, Santiago | ✓ |
+| PÉREZ ARROYAVE, Damián | ✓ |
+| GAVIRIA BARRENECHE, Camila | ✓ |
+| HURTADO BETANCUR, Janeth | Excusa |
+| MACÍAS BETANCUR, Farley Jhaír | ✓ |
+| MARÍN MORA, José Luis | ✓ |
+| ARIAS GARCÍA, Alejandro | ✓ |
+| IGUARÁN OSORIO, Miguel Ángel | ✓ |
+| JIMÉNEZ LARA, Juan Ramón | ✓ |
+| ARENAS SUAZA, Brisvani Alexis | ✓ |
+| ORREGO PÉREZ, Leticia | ✓ |
+| RODRÍGUEZ PUERTA, Andrés Felipe | ✓ |
+| CARRASQUILLA MINAMI, Claudia Victoria | ✓ |
+| VÉLEZ ÁLVAREZ, Luis Guillermo de Jesús | ✓ |
+
+**SECRETARIO GENERAL:** "Señor presidente, informo que se encuentran presentes veinte (20) honorables concejales. La honorable concejal Janeth Hurtado Betancur presentó excusa justificada por cita médica. Existe quórum para deliberar y decidir".
+
+**PRESIDENTE:** "Se declara abierta la sesión. Proceda con la lectura del orden del día".`
   },
   {
     name: 'fragmento_02_orden_dia.txt',
-    content: `## 3. ORDEN DEL DÍA
+    content: `## 2. ORDEN DEL DÍA
 
-Se pone a consideración el siguiente Orden del Día:
+El secretario general procede a dar lectura al orden del día propuesto por la Mesa Directiva:
 
-1. Llamado a lista y verificación del cuórum.
-2. Lectura y aprobación del Orden del Día.
-3. Debate de Control Político: "Estado de la Seguridad Ciudadana, Movilidad Sostenible y Ejecución Presupuestaria del Primer Trimestre 2026".
-4. Lectura de comunicaciones y correspondencia.
+1. Llamado a lista y verificación del quórum.
+2. Lectura y aprobación del orden del día.
+3. **DEBATE DE CONTROL POLÍTICO: "Evaluación de la Política de Seguridad Ciudadana y Convivencia en el Distrito Especial de Ciencia, Tecnología e Innovación de Medellín – Primer Semestre 2025".**
+   - Citantes: Bancada Centro Democrático
+   - Citados: Secretario de Seguridad y Convivencia, Comandante Policía Metropolitana, Director Seccional de Fiscalías
+4. Lectura de comunicaciones.
 5. Proposiciones y varios.
 6. Cierre de la sesión.
 
-**Votación del Orden del Día:**
-Aprobado por unanimidad (21 votos positivos).
+**PRESIDENTE:** "Se somete a consideración de la plenaria el orden del día. ¿Hay intervenciones?"
+
+*No se solicitan intervenciones.*
+
+**PRESIDENTE:** "En consideración. ¿Lo aprueba la plenaria?"
+
+**VOTACIÓN ORDINARIA**
+*Por medios electrónicos*
+
+**Resultado:** Aprobado por unanimidad con veinte (20) votos afirmativos.
 
 ---
 
-## 4. DESARROLLO DE LA SESIÓN (INTERVENCIONES)
+## 3. DEBATE DE CONTROL POLÍTICO
 
-**PUNTO 3: DEBATE DE CONTROL POLÍTICO SOBRE SEGURIDAD, MOVILIDAD Y PRESUPUESTO.**
+### SEGURIDAD CIUDADANA Y CONVIVENCIA – PRIMER SEMESTRE 2025
 
-**Intervención del Presidente del Concejo:**
-
-"Damos inicio a este debate crucial para la ciudad. Medellín enfrenta retos estructurales que no pueden esperar. El presupuesto asignado para este año debe ejecutarse con transparencia y eficiencia. Hoy citamos a los Secretarios de Seguridad, Movilidad y Hacienda para que rindan cuentas claras ante esta corporación y ante la ciudadanía que nos sigue a través de los canales institucionales. Tiene la palabra el Secretario de Seguridad y Convivencia".
-
-**Intervención del Secretario de Seguridad y Convivencia:**
-
-"Muchas gracias, señor Presidente, Honorables Concejales. Presentamos hoy el informe detallado sobre los indicadores de criminalidad del primer mes del año. Hemos observado una reducción del 12% en los delitos de alto impacto en las comunas 10 y 13, gracias a la implementación de la estrategia de cuadrantes dinámicos y el fortalecimiento del sistema de cámaras LPR. Sin embargo, reconocemos que el hurto a personas sigue siendo un desafío persistente. Estamos solicitando una adición presupuestal para la modernización del centro de monitoreo y la adquisición de 200 nuevas motocicletas para la Policía Metropolitana. La seguridad no es solo un asunto de fuerza pública, sino de inversión social en los territorios más vulnerables, y hacia allá estamos enfocando los recursos de prevención del delito".
-
-**Intervención del Honorable Concejal AGUDELO RAMÍREZ, Carlos Alberto:**
-
-"Señor Secretario, las cifras que usted presenta parecen ignorar la realidad que viven los ciudadanos en los barrios. La percepción de inseguridad está por las nubes. No podemos seguir hablando de porcentajes de reducción cuando la gente tiene miedo de sacar su celular en el transporte público. ¿Dónde están los resultados de la inversión en tecnología de punta que aprobamos el año pasado? Exijo un desglose detallado de los contratos de mantenimiento de las cámaras de seguridad, porque tenemos reportes de que más del 30% de los dispositivos en la zona nororiental no están operativos. La seguridad de Medellín no se garantiza con discursos, sino con presencia efectiva y tecnología que funcione de verdad. No aceptaremos más dilaciones en la entrega de los CAI móviles prometidos para la periferia".`
+**PRESIDENTE:** "Damos inicio al debate de control político. Tiene la palabra el honorable concejal Andrés Felipe Tobón Villada, citante principal".`
   },
   {
     name: 'fragmento_03_debate_central.txt',
-    content: `**Intervención de la Honorable Concejal ARANGO URIBE, María Victoria:**
+    content: `### INTERVENCIÓN DEL CITANTE
 
-"Presidente, mi intervención se centrará en el eje de movilidad. Medellín está colapsada. El pico y placa actual es insuficiente y la infraestructura vial está llegando a un punto de no retorno. El Secretario de Movilidad debe explicarnos por qué las obras del intercambio vial de la 80 presentan un retraso del 15% según el cronograma original. Los ciudadanos están perdiendo hasta tres horas diarias en trancones, lo que afecta la productividad y la salud mental. Necesitamos una apuesta real por el transporte multimodal. ¿Qué pasó con la integración tarifaria del Metro con las rutas alimentadoras de las cuencas 3 y 6? Es inaceptable que en 2026 sigamos discutiendo problemas técnicos básicos que ya deberían estar resueltos".
+**H.C. ANDRÉS FELIPE TOBÓN VILLADA (Centro Democrático):**
 
-**Intervención del Secretario de Movilidad:**
+"Gracias, señor presidente. Honorables colegas, funcionarios de la Administración, ciudadanía que nos sigue por el Canal Telemedellín y las redes institucionales.
 
-"Con el respeto de la Honorable Concejal Arango, quiero precisar que los retrasos en las obras de la 80 se deben a hallazgos arqueológicos y a la necesidad de reubicar redes de servicios públicos que no estaban mapeadas originalmente por EPM. Estamos trabajando 24/7 para recuperar el tiempo perdido. En cuanto a la movilidad sostenible, este mes hemos entregado 5 kilómetros adicionales de ciclorrutas protegidas y estamos en proceso de licitación para la renovación de la flota de buses eléctricos del sistema Metroplús. La meta es que para finales de este año, el 40% de la flota pública sea de cero emisiones. Entendemos la frustración por la congestión, pero la solución estructural es el transporte público masivo, no más espacio para el vehículo particular".
+Hemos citado este debate porque Medellín enfrenta una crisis de seguridad que no podemos seguir ignorando. Las cifras oficiales del primer semestre de 2025 muestran un incremento del 18% en hurtos a personas respecto al mismo período del año anterior. En las comunas 10, 13 y 16 se concentra el 45% de estos delitos.
 
-**Intervención del Honorable Concejal CARVALHO MEJÍA, Daniel:**
+Pero no son solo números. Son ciudadanos que tienen miedo de salir a la calle con su celular, comerciantes que pagan extorsiones para poder trabajar, mujeres que no pueden caminar tranquilas por un parque después de las seis de la tarde.
 
-"Es fundamental que hablemos de la planeación urbana ligada a la movilidad. No podemos seguir construyendo edificios en las laderas sin garantizar vías de acceso y transporte público eficiente. El POT se está quedando corto frente a la presión inmobiliaria. Solicito que se cree una comisión accidental para revisar las licencias de construcción otorgadas en el último semestre en el sector de El Poblado y Robledo. Además, señor Secretario de Hacienda, ¿cómo va la ejecución del presupuesto participativo? Hay comunidades que votaron por proyectos de pavimentación y mejora de entornos hace dos años y aún no ven la primera piedra. La burocracia está asfixiando la voluntad popular".
+Le pregunto al señor secretario de Seguridad:
 
-**Intervención del Secretario de Hacienda:**
+1. ¿Cuál es la estrategia integral para reducir el hurto a personas?
+2. ¿Qué pasó con los 200 nuevos cuadrantes prometidos en el Plan de Desarrollo?
+3. ¿Por qué el sistema de cámaras de la ciudad tiene un 30% de dispositivos no operativos?
 
-"Honorable Concejal Carvalho, el presupuesto participativo tiene una ejecución del 85% respecto a los proyectos aprobados en la vigencia anterior. Los retrasos que menciona se deben a procesos de contratación que deben cumplir con la Ley 80 para garantizar la transparencia. Para este 2026, hemos dispuesto de una plataforma digital donde cualquier ciudadano puede hacer seguimiento en tiempo real a la inversión de sus recursos. Medellín cuenta con una salud financiera sólida, nuestra calificación crediticia se mantiene en AAA, lo que nos permite acceder a créditos internacionales para financiar los proyectos estratégicos del Plan de Desarrollo. No hay riesgo de desfinanciación, hay un compromiso total con la eficiencia del gasto público".`
+Esperamos respuestas concretas, no más cifras maquilladas".
+
+**PRESIDENTE:** "Tiene la palabra el secretario de Seguridad y Convivencia".
+
+---
+
+### INTERVENCIÓN DE LA ADMINISTRACIÓN
+
+**SECRETARIO DE SEGURIDAD Y CONVIVENCIA, doctor Manuel Alejandro Villa Mejía:**
+
+"Señor presidente, honorables concejales, buenos días.
+
+Agradezco la oportunidad de presentar ante esta corporación el informe de gestión en materia de seguridad ciudadana. Antes de responder las preguntas puntuales del honorable concejal citante, permítanme contextualizar:
+
+Medellín pasó de una tasa de homicidios de 25 por cada 100.000 habitantes en 2019 a 17.8 en 2025. Eso representa una reducción del 28.8% en seis años. Sin embargo, reconocemos que el hurto a personas sigue siendo un desafío estructural.
+
+Respecto a las preguntas formuladas:
+
+**Primera pregunta - Estrategia integral:**
+Implementamos el modelo de "Cuadrantes Inteligentes" que combina presencia policial con análisis de datos en tiempo real. En las zonas priorizadas (comunas 10, 13 y 16), hemos logrado una reducción del 12% en el segundo trimestre respecto al primero.
+
+**Segunda pregunta - Nuevos cuadrantes:**
+De los 200 cuadrantes prometidos, 156 ya están operando. Los 44 restantes están en proceso de dotación de motocicletas, con entrega programada para marzo de 2026.
+
+**Tercera pregunta - Sistema de cámaras:**
+Efectivamente teníamos un 32% de cámaras fuera de servicio. A la fecha, hemos recuperado el 18% y estamos en proceso de licitación para la modernización del sistema completo con un presupuesto de $45.000 millones".
+
+**PRESIDENTE:** "Honorables concejales que deseen intervenir, favor inscribirse".`
   },
   {
     name: 'fragmento_04_intervenciones.txt',
-    content: `**Intervención del Honorable Concejal GUERRA HOYOS, Bernardo Alejandro:**
+    content: `### INTERVENCIONES DE LOS HONORABLES CONCEJALES
 
-"Aquí se habla de salud financiera, pero yo quiero hablar de la salud de la transparencia. He recibido denuncias sobre presuntas irregularidades en la contratación de la alimentación escolar (PAE). No permitiré que los recursos de los niños de Medellín se pierdan en los bolsillos de contratistas inescrupulosos. Pido a la Personería y a la Contraloría que inicien de inmediato una auditoría forense a los contratos firmados en diciembre. Si hay corrupción, hay que denunciarla con nombres y apellidos. Esta corporación debe ser el muro de contención contra el saqueo del erario. No me cansaré de repetir: los recursos públicos son sagrados".
+**H.C. MARÍA PAULINA SUÁREZ ROLDÁN (Creemos):**
 
-**Intervención del Honorable Concejal JIMÉNEZ GÓMEZ, Sebastián:**
+"Señor presidente, mi intervención se centrará en el enfoque de género de la política de seguridad. Las cifras de violencia contra las mujeres son alarmantes: 4.500 casos de violencia intrafamiliar en el primer semestre, un 15% más que el año anterior.
 
-"Apoyo la moción del concejal Guerra. Pero también debemos mirar hacia la innovación. Medellín se autodenomina Distrito de Ciencia, Tecnología e Innovación, pero la inversión en startups locales ha disminuido un 10% en comparación con el año anterior. Necesitamos incentivos fiscales para las empresas tecnológicas que se asienten en el Valle del Software. Si no generamos empleo de calidad para nuestros jóvenes, la inseguridad seguirá siendo el camino fácil para muchos. Propongo que se destine un rubro específico del fondo de contingencia para becas en programación y análisis de datos para jóvenes de estratos 1, 2 y 3".
+Le pregunto al secretario: ¿Cuántos de los nuevos cuadrantes tienen formación específica en atención a violencias basadas en género? ¿Cuál es el tiempo promedio de respuesta a una llamada de la Línea 123 por violencia intrafamiliar?
 
-**Intervención de la Honorable Concejal RIVERA RIVERA, Nataly:**
+No podemos seguir hablando de seguridad ciudadana sin hablar de la seguridad de las mujeres, que somos el 52% de la población".
 
-"Señor Presidente, no podemos cerrar este debate sin hablar de la equidad de género en el presupuesto. ¿Cuánto del presupuesto de la Secretaría de Seguridad está destinado específicamente a la prevención de violencias contra las mujeres? Las cifras de feminicidios y violencia intrafamiliar en la ciudad son alarmantes. Necesitamos más 'Casas de Justicia' y una ruta de atención que no revictimice. La seguridad ciudadana también es que una mujer pueda caminar tranquila por un parque a las 10 de la noche. Solicito que se incluya un enfoque de género transversal en todas las secretarías para la ejecución presupuestaria de este año".`
+---
+
+**H.C. JOSÉ LUIS MARÍN MORA (Polo Democrático):**
+
+"Presidente, la seguridad no se garantiza solo con más policías. Necesitamos inversión social en los territorios más vulnerables. El 70% de los jóvenes que ingresan al sistema de responsabilidad penal vienen de hogares en pobreza extrema.
+
+Solicito que se destine al menos el 20% del presupuesto de seguridad a programas de prevención y oportunidades para la juventud. La cárcel no resuelve la desigualdad".
+
+---
+
+**H.C. LETICIA ORREGO PÉREZ (Centro Democrático):**
+
+"Apoyo la intervención del concejal Tobón. Es inaceptable que en una ciudad que se autodenomina Distrito de Ciencia, Tecnología e Innovación, un tercio de las cámaras de seguridad no funcionen.
+
+Propongo que se cree una comisión accidental de seguimiento a la inversión en tecnología de seguridad, con informes mensuales a esta corporación".
+
+---
+
+**SECRETARIO DE SEGURIDAD (respuesta):**
+
+"Respecto al enfoque de género: el 100% de los nuevos cuadrantes reciben formación obligatoria en atención a víctimas de violencia basada en género. El tiempo promedio de respuesta a la Línea 123 por VIF es de 8 minutos con 32 segundos.
+
+Coincidimos con el honorable concejal Marín en la importancia de la prevención. Por eso, el 35% del presupuesto de la Secretaría se destina a programas como "Jóvenes con Futuro" y "Medellín Me Cuida".`
   },
   {
     name: 'fragmento_05_cierre.txt',
-    content: `## 5. VOTACIONES NOMINALES
+    content: `### PROPOSICIONES DERIVADAS DEL DEBATE
 
-Se somete a votación la proposición de crear una Comisión Accidental para el seguimiento de las obras de movilidad y la transparencia en la contratación del PAE.
+**PRESIDENTE:** "Se somete a votación la proposición presentada por la honorable concejal Leticia Orrego Pérez para crear una Comisión Accidental de Seguimiento a la Inversión en Tecnología de Seguridad".
 
-**Resultado de la Votación:**
+**VOTACIÓN NOMINAL**
+*Por solicitud de la bancada Creemos*
 
-| Concejal | Voto |
-| :--- | :--- |
-| AGUDELO RAMÍREZ, Carlos Alberto | SÍ |
-| ARANGO URIBE, María Victoria | SÍ |
-| BEDOYA LÓPEZ, Juan Felipe | SÍ |
-| CARVALHO MEJÍA, Daniel | SÍ |
-| CORREA LÓPEZ, Luis Bernardo | SÍ |
-| CUARTAS OCHOA, Lucas | SÍ |
-| ECHAVARRÍA SÁNCHEZ, Andrés | SÍ |
-| FLÓREZ HERNÁNDEZ, Alex | SÍ |
-| GAVIRIA CORREA, Santiago | SÍ |
-| GUERRA HOYOS, Bernardo Alejandro | SÍ |
-| HENRÍQUEZ GALLO, Luis Carlos | SÍ |
-| JIMÉNEZ GÓMEZ, Sebastián | SÍ |
-| LONDOÑO SOTO, Daniela | SÍ |
-| MEJÍA ALVARADO, Claudia | SÍ |
-| MONCADA VALENCIA, Simón | SÍ |
-| PELÁEZ ARANGO, Alfredo | SÍ |
-| QUINTERO CALLE, Juan Carlos | SÍ |
-| RIVERA RIVERA, Nataly | SÍ |
-| TOBÓN ECHEVERRI, Fabio | SÍ |
-| URIBE VÉLEZ, José Luis | SÍ |
-| ZAPATA LOPERA, Gloria | SÍ |
+| HONORABLE CONCEJAL | VOTO |
+|:---|:---:|
+| LÓPEZ VALENCIA, Sebastián | SÍ |
+| PERDOMO MONTOYA, Santiago | SÍ |
+| GUTIÉRREZ BUSTAMANTE, Carlos Alberto | SÍ |
+| TOBÓN VILLADA, Andrés Felipe | SÍ |
+| SUÁREZ ROLDÁN, María Paulina | SÍ |
+| DE BEDOUT ARANGO, Alejandro | SÍ |
+| DE LA CUESTA GALVIS, Juan Carlos | SÍ |
+| NARVÁEZ LOMBANA, Santiago | SÍ |
+| PÉREZ ARROYAVE, Damián | SÍ |
+| GAVIRIA BARRENECHE, Camila | SÍ |
+| MACÍAS BETANCUR, Farley Jhaír | SÍ |
+| MARÍN MORA, José Luis | ABSTENCIÓN |
+| ARIAS GARCÍA, Alejandro | SÍ |
+| IGUARÁN OSORIO, Miguel Ángel | SÍ |
+| JIMÉNEZ LARA, Juan Ramón | SÍ |
+| ARENAS SUAZA, Brisvani Alexis | SÍ |
+| ORREGO PÉREZ, Leticia | SÍ |
+| RODRÍGUEZ PUERTA, Andrés Felipe | SÍ |
+| CARRASQUILLA MINAMI, Claudia Victoria | SÍ |
+| VÉLEZ ÁLVAREZ, Luis Guillermo de Jesús | SÍ |
 
-**Secretario General:** "Señor Presidente, informo que la proposición ha sido aprobada por unanimidad con veintiún (21) votos positivos".
-
----
-
-## 6. PROPOSICIONES Y VARIOS
-
-- **El H.C. Luis Bernardo Correa** solicita que se invite para la próxima sesión al Gerente de EPM para discutir las tarifas de servicios públicos y el impacto del fenómeno del niño en el embalse de Guatapé.
-
-- **La H.C. Gloria Zapata** hace un llamado a la Secretaría de Cultura para fortalecer los eventos en los barrios durante el mes de febrero, promoviendo el talento local.
-
-- **El H.C. Simón Moncada** deja constancia de su preocupación por el estado de la malla vial en la Comuna 16 (Belén) y solicita intervención inmediata de la Secretaría de Infraestructura.
+**SECRETARIO GENERAL:** "Señor presidente, la proposición ha sido aprobada con diecinueve (19) votos afirmativos y una (1) abstención".
 
 ---
 
-## 7. CIERRE DE LA SESIÓN
+## 4. COMUNICACIONES
 
-No habiendo más temas por tratar en el Orden del Día, el Presidente del Concejo agradece la asistencia de los funcionarios de la Administración Municipal, de los Honorables Concejales y de la ciudadanía presente.
+Se da lectura a las siguientes comunicaciones:
 
-Se convoca para la próxima sesión ordinaria el día de mañana, 28 de enero de 2026, a las 09:00 a. m. en el mismo recinto.
+4.1. Oficio No. 2026-001-0234 del Departamento Administrativo de Planeación, dando respuesta a la proposición 892 de 2025.
 
-**HORA DE FINALIZACIÓN:** 01:45 p. m.
-
-Para constancia de lo anterior, se firma la presente acta por quienes en ella intervinieron.
+4.2. Invitación de la Universidad de Antioquia al Foro "Ciudades Seguras" el 15 de febrero de 2026.
 
 ---
 
-**PRESIDENTE DEL CONCEJO**
+## 5. PROPOSICIONES Y VARIOS
 
+- El H.C. **Santiago Perdomo Montoya** solicita citar al gerente de EPM para debatir el impacto tarifario del fenómeno de El Niño.
 
-**SECRETARIO GENERAL DEL CONCEJO**`
+- La H.C. **Camila Gaviria Barreneche** solicita reconocimiento con Distinción de Plata a la Fundación "Mujeres que Inspiran" por su labor en las comunas.
+
+---
+
+## 6. CIERRE DE LA SESIÓN
+
+Agotado el orden del día, el presidente del Concejo agradece a los funcionarios de la Administración Municipal, a los honorables concejales y a la ciudadanía presente y conectada virtualmente.
+
+Se convoca para la próxima sesión ordinaria el día miércoles, veintiocho (28) de enero de 2026, a las nueve de la mañana (09:00 a. m.), en el mismo recinto.
+
+Siendo la una y cuarenta y cinco de la tarde (01:45 p. m.), se levanta la sesión.
+
+---
+
+Para constancia se firma por quienes en ella intervinieron:
+
+**SEBASTIÁN LÓPEZ VALENCIA**
+Presidente del Concejo
+
+**JUAN FERNANDO SÁNCHEZ VÉLEZ**
+Secretario General`
   }
 ];
 
@@ -197,8 +282,19 @@ export function getActa348Fragments(): string[] {
 export function createActa348TestInput() {
   return {
     sessionId: '348',
-    sessionName: 'Sesión Ordinaria #348',
+    sessionName: 'Sesión Plenaria Ordinaria No. 348 - Control Político Seguridad',
     transcriptParts: getActa348Fragments(),
-    youtubeUrl: undefined
+    youtubeUrl: 'https://www.youtube.com/watch?v=example348',
+    metadata: {
+      tipo: 'Ordinaria' as const,
+      fecha: '2026-01-27',
+      citantes: ['Bancada Centro Democrático'],
+      tema: 'Evaluación de la Política de Seguridad Ciudadana y Convivencia'
+    }
   };
+}
+
+// Función para obtener la lista de concejales como string[] (para validación de quórum)
+export function getConcejalesNombres(): string[] {
+  return CONCEJALES_2024_2027.map(c => c.nombre);
 }

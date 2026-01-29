@@ -42,30 +42,30 @@ export interface PipelineOutput {
 type ThoughtCallback = (thought: ThoughtLine) => void;
 type StepUpdateCallback = (stepId: number, update: Partial<PipelineStep>) => void;
 
-// ===== LISTA OFICIAL DE CONCEJALES =====
+// ===== LISTA OFICIAL DE CONCEJALES (PERÍODO 2024-2027) =====
 
 const CONCEJALES_OFICIALES = [
-  'AGUDELO RAMÍREZ, Carlos Alberto',
-  'ARANGO URIBE, María Victoria',
-  'BEDOYA LÓPEZ, Juan Felipe',
-  'CARVALHO MEJÍA, Daniel',
-  'CORREA LÓPEZ, Luis Bernardo',
-  'CUARTAS OCHOA, Lucas',
-  'ECHAVARRÍA SÁNCHEZ, Andrés',
-  'FLÓREZ HERNÁNDEZ, Alex',
-  'GAVIRIA CORREA, Santiago',
-  'GUERRA HOYOS, Bernardo Alejandro',
-  'HENRÍQUEZ GALLO, Luis Carlos',
-  'JIMÉNEZ GÓMEZ, Sebastián',
-  'LONDOÑO SOTO, Daniela',
-  'MEJÍA ALVARADO, Claudia',
-  'MONCADA VALENCIA, Simón',
-  'PELÁEZ ARANGO, Alfredo',
-  'QUINTERO CALLE, Juan Carlos',
-  'RIVERA RIVERA, Nataly',
-  'TOBÓN ECHEVERRI, Fabio',
-  'URIBE VÉLEZ, José Luis',
-  'ZAPATA LOPERA, Gloria'
+  'López Valencia, Sebastián',
+  'Perdomo Montoya, Santiago',
+  'Gutiérrez Bustamante, Carlos Alberto',
+  'Tobón Villada, Andrés Felipe',
+  'Suárez Roldán, María Paulina',
+  'De Bedout Arango, Alejandro',
+  'de la Cuesta Galvis, Juan Carlos',
+  'Narváez Lombana, Santiago',
+  'Pérez Arroyave, Damián',
+  'Gaviria Barreneche, Camila',
+  'Hurtado Betancur, Janeth',
+  'Macías Betancur, Farley Jhaír',
+  'Marín Mora, José Luis',
+  'Arias García, Alejandro',
+  'Iguarán Osorio, Miguel Ángel',
+  'Jiménez Lara, Juan Ramón',
+  'Arenas Suaza, Brisvani Alexis',
+  'Orrego Pérez, Leticia',
+  'Rodríguez Puerta, Andrés Felipe',
+  'Carrasquilla Minami, Claudia Victoria',
+  'Vélez Álvarez, Luis Guillermo de Jesús'
 ];
 
 // ===== UTILIDADES =====
