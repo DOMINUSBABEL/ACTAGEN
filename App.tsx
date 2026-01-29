@@ -24,16 +24,17 @@ import {
   Code,
   FileUp,
   Play,
-  Layers
+  Layers,
+  Brain  // NUEVO
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
 import { SessionCard } from './components/SessionCard';
 import { TerminalOutput } from './components/TerminalOutput';
 import { FileUploader } from './components/FileUploader';
+import { PipelineTab } from './components/PipelineTab';  // NUEVO
 
 // Configure PDF.js worker
-// Fix for ESM/CJS interop with pdfjs-dist: resolve the correct object
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
 if (pdfjs.GlobalWorkerOptions) {
@@ -46,10 +47,10 @@ const INITIAL_SESSIONS: SessionData[] = [
   {
     id: '348',
     name: 'Sesión Ordinaria #348',
-    date: 'Oct 24, 2026',
+    date: 'Ene 27, 2026',
     status: SessionStatus.PENDING,
     files: ['Anexo_A_Asistencia.pdf', 'Anexo_B_Presupuesto.pdf'],
-    duration: '2h 14m',
+    duration: '5h 15m',
     youtubeUrl: 'https://youtube.com/watch?v=example',
     transcriptFiles: ['348_parte1.docx', '348_parte2.docx', '348_parte3.docx'],
     actaType: 'Literal'
@@ -57,7 +58,7 @@ const INITIAL_SESSIONS: SessionData[] = [
   {
     id: '347',
     name: 'Sesión Extraordinaria #347',
-    date: 'Oct 10, 2026',
+    date: 'Ene 20, 2026',
     status: SessionStatus.COMPLETED,
     files: ['video_sesion_347.mp4', 'Anexo_Unico.pdf'],
     duration: '45m',
@@ -65,36 +66,13 @@ const INITIAL_SESSIONS: SessionData[] = [
   }
 ];
 
-interface NewSessionState {
-  name: string;
-  sourceType: 'youtube' | 'audio';
-  youtubeUrl: string;
-  sourceAudio: File | null;
-  transcriptFiles: File[];
-  actaType: 'Literal' | 'Sucinta';
-}
-
-// Helper to convert file to Base64
-const fileToGenerativePart = async (file: File) => {
-  const base64EncodedDataPromise = new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
-  });
-  return {
-    inlineData: { data: await base64EncodedDataPromise as string, mimeType: file.type },
-  };
-};
-
 // Helper to extract text from PDF
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    // Use the resolved pdfjs object instead of the import namespace directly
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
     let fullText = "";
     
-    // Iterate over all pages
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
@@ -108,98 +86,30 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
   }
 };
 
+// TIPOS DE TAB ACTUALIZADOS
+type TabType = 'dashboard' | 'pipeline' | 'validator' | 'protocol' | 'manual';
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agent' | 'protocol' | 'manual' | 'validator'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [sessions, setSessions] = useState<SessionData[]>(INITIAL_SESSIONS);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingPhase, setProcessingPhase] = useState<string>(''); // For progress bar
-  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // States for Validator
   const [validatorFiles, setValidatorFiles] = useState<File[]>([]);
-  const [validatorParts, setValidatorParts] = useState<any[]>([]); // Array of API parts
+  const [validatorParts, setValidatorParts] = useState<any[]>([]);
   const [xmlResult, setXmlResult] = useState<string>('');
   const [isValidating, setIsValidating] = useState(false);
   const [auditProgress, setAuditProgress] = useState<{current: number, total: number}>({ current: 0, total: 0 });
-
-  const [generatedDocument, setGeneratedDocument] = useState<string>('');
-  
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [newSessionData, setNewSessionData] = useState<NewSessionState>({
-    name: '',
-    sourceType: 'youtube',
-    youtubeUrl: '',
-    sourceAudio: null,
-    transcriptFiles: [],
-    actaType: 'Literal'
-  });
-
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     geminiService.initChat();
   }, []);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory, isProcessing, terminalLines]);
-
-  const activeSession = sessions.find(s => s.id === selectedSessionId);
-
   const handleSessionSelect = (id: string) => {
     setSelectedSessionId(id);
-    setActiveTab('agent');
-    setMobileMenuOpen(false); 
-    setGeneratedDocument('');
-    if (chatHistory.length === 0 || selectedSessionId !== id) {
-       setChatHistory([{
-        id: 'welcome',
-        role: 'model',
-        content: `**AGENTE RELATOR ONLINE**\n\nHola, soy tu asistente de relatoría.`,
-        timestamp: new Date(),
-        type: 'text'
-      }]);
-    }
-  };
-
-  const handleCreateSession = () => {
-      const newId = (Math.floor(Math.random() * 1000) + 350).toString();
-      const newSession: SessionData = {
-        id: newId,
-        name: newSessionData.name || `Sesión Nueva #${newId}`,
-        date: new Date().toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' }),
-        status: SessionStatus.PENDING,
-        files: [],
-        duration: '0h 0m',
-        youtubeUrl: newSessionData.sourceType === 'youtube' ? newSessionData.youtubeUrl : undefined,
-        sourceAudio: newSessionData.sourceType === 'audio' ? newSessionData.sourceAudio! : undefined,
-        transcriptFiles: newSessionData.transcriptFiles.map(f => f.name),
-        actaType: newSessionData.actaType
-      };
-  
-      setSessions([newSession, ...sessions]);
-      setShowImportModal(false);
-      handleSessionSelect(newId);
-      setNewSessionData({ name: '', sourceType: 'youtube', youtubeUrl: '', sourceAudio: null, transcriptFiles: [], actaType: 'Literal' });
-  };
-  
-  const handleAddFilesToActiveSession = (files: File[]) => {
-      if (files && selectedSessionId) {
-        const newFiles = files.map((f: File) => f.name);
-        setSessions(prev => prev.map(s => {
-          if (s.id === selectedSessionId) {
-            return {
-              ...s,
-              transcriptFiles: [...(s.transcriptFiles || []), ...newFiles]
-            };
-          }
-          return s;
-        }));
-      }
+    setActiveTab('pipeline'); // Ir al pipeline cuando se selecciona sesión
+    setMobileMenuOpen(false);
   };
 
   const handleTeiAudit = async () => {
@@ -211,7 +121,6 @@ export default function App() {
     
     try {
       await new Promise(r => setTimeout(r, 500));
-      // Send the array of parts (files)
       const result = await geminiService.auditTextWithTEI(validatorParts, (current, total) => {
           setAuditProgress({ current, total });
       });
@@ -244,16 +153,13 @@ export default function App() {
         
         const newParts: any[] = [];
         
-        // We now process files sequentially to handle extraction correctly
         for (const file of files) {
-             // STRATEGY CHANGE: Extract text from PDF client-side to allow chunking
              if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
                  try {
                      const extractedText = await extractTextFromPDF(file);
                      newParts.push({ text: `[ARCHIVO PDF EXTRAÍDO: ${file.name}]\n${extractedText}` });
                  } catch (e) { 
                      console.error("PDF Text Extraction Error", e);
-                     // Fallback to binary if extraction fails (though extraction is preferred)
                      const base64Data = await new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
@@ -264,7 +170,6 @@ export default function App() {
                      });
                  }
             } else {
-                // Text/XML/Code/DOCX (treated as text for now, ideally convert docx to text too)
                 const text = await new Promise((resolve) => {
                      const reader = new FileReader();
                      reader.onload = (e) => resolve(e.target?.result as string);
@@ -285,68 +190,81 @@ export default function App() {
       setAuditProgress({ current: 0, total: 0 });
   };
 
-  const handleDownloadDocx = () => {
-      const session = sessions.find(s => s.id === selectedSessionId);
-      const contentToDownload = generatedDocument || `Error: No se ha generado contenido aún.`;
-      const element = document.createElement("a");
-      const file = new Blob([contentToDownload], {type: 'text/plain;charset=utf-8'});
-      element.href = URL.createObjectURL(file);
-      element.download = `ACTA_OFICIAL_${session?.id}_CONSOLIDADA.md`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-  };
-
-  const executeMasterProcess = async () => {
-     const session = sessions.find(s => s.id === selectedSessionId);
-     if (isProcessing) return;
-     setIsProcessing(true);
-     const isAudioSession = !!session?.sourceAudio;
-     
-     setTerminalLines([]);
-     try {
-       if (isAudioSession && session?.sourceAudio) {
-         setTerminalLines(prev => [...prev, { text: `Inicializando Kernel...`, type: 'info' }]);
-         const audioPart = await fileToGenerativePart(session.sourceAudio);
-         const contextInfo = `Sesión: ${session.name}`;
-         let fullDocumentAccumulator = "";
-         let phaseCounter = 1;
-         for await (const chunk of geminiService.generateLongAudioActa(audioPart, contextInfo)) {
-           fullDocumentAccumulator += `\n\n## ${chunk.step}\n\n${chunk.text}`;
-           setProcessingPhase(`${phaseCounter}/5: ${chunk.step}`);
-           phaseCounter++;
-         }
-         setGeneratedDocument(fullDocumentAccumulator);
-       } else {
-         const response = await geminiService.sendMessage(`Generar acta para ${session?.name}`, session?.youtubeUrl);
-         setGeneratedDocument(response.text);
-       }
-     } catch (e) { console.error(e); } 
-     finally { setIsProcessing(false); }
-  };
-
-  const handleSendMessage = async () => {
-      if (!inputMessage.trim() || isProcessing) return;
-      setInputMessage('');
-  };
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
 
   const SidebarItem = ({ icon: Icon, label, active, onClick, badge }: any) => (
       <button onClick={onClick} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
         <div className="flex items-center gap-3"><Icon size={20} />{label}</div>
-        {badge && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">{badge}</span>}
+        {badge && <span className={`text-[10px] px-2 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>{badge}</span>}
       </button>
   );
 
   const Sidebar = () => (
       <div className="flex flex-col h-full bg-white border-r border-slate-200">
           <div className="p-6">
-              <div className="flex items-center gap-3 mb-8"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center"><Bot className="text-white" size={22} /></div><span className="font-bold text-lg">ActaGen</span></div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Bot className="text-white" size={22} />
+                </div>
+                <div>
+                  <span className="font-bold text-lg">ActaGen</span>
+                  <span className="text-[10px] ml-1 text-slate-400">v3.0</span>
+                </div>
+              </div>
               <nav className="space-y-1.5">
-                  <SidebarItem icon={LayoutDashboard} label="Tablero Operativo" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                  <SidebarItem icon={ShieldCheck} label="Protocolo (19 Pasos)" active={activeTab === 'protocol'} onClick={() => setActiveTab('protocol')} badge="Master" />
-                  <SidebarItem icon={FileSearch} label="Auditoría TEI / XML" active={activeTab === 'validator'} onClick={() => setActiveTab('validator')} badge="New" />
-                  <SidebarItem icon={FileText} label="Manual de Estilo" active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} />
+                  <SidebarItem 
+                    icon={LayoutDashboard} 
+                    label="Tablero Operativo" 
+                    active={activeTab === 'dashboard'} 
+                    onClick={() => setActiveTab('dashboard')} 
+                  />
+                  <SidebarItem 
+                    icon={Brain} 
+                    label="Kernel 19 Pasos" 
+                    active={activeTab === 'pipeline'} 
+                    onClick={() => setActiveTab('pipeline')} 
+                    badge="AI"
+                  />
+                  <SidebarItem 
+                    icon={FileSearch} 
+                    label="Auditoría TEI / XML" 
+                    active={activeTab === 'validator'} 
+                    onClick={() => setActiveTab('validator')} 
+                  />
+                  <SidebarItem 
+                    icon={ShieldCheck} 
+                    label="Protocolo (Docs)" 
+                    active={activeTab === 'protocol'} 
+                    onClick={() => setActiveTab('protocol')} 
+                  />
+                  <SidebarItem 
+                    icon={FileText} 
+                    label="Manual de Estilo" 
+                    active={activeTab === 'manual'} 
+                    onClick={() => setActiveTab('manual')} 
+                  />
               </nav>
+          </div>
+          
+          {/* Sessions List */}
+          <div className="flex-1 px-6 overflow-y-auto">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Sesiones Recientes</h3>
+            <div className="space-y-2">
+              {sessions.map(session => (
+                <button
+                  key={session.id}
+                  onClick={() => handleSessionSelect(session.id)}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    selectedSessionId === session.id 
+                      ? 'bg-blue-50 border border-blue-200' 
+                      : 'hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <div className="font-medium text-sm text-slate-800">{session.name}</div>
+                  <div className="text-xs text-slate-500 mt-1">{session.date} • {session.duration}</div>
+                </button>
+              ))}
+            </div>
           </div>
       </div>
   );
@@ -356,14 +274,60 @@ export default function App() {
       <aside className="hidden md:flex w-[280px] flex-col h-full flex-shrink-0 border-r border-slate-200 shadow-sm"><Sidebar /></aside>
       <main className="flex-1 flex flex-col h-full relative min-w-0 bg-white md:bg-[#F8FAFC]">
         <header className="h-16 flex-none bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
-            <h1 className="text-lg font-bold">ActaGen AI</h1>
+            <div className="flex items-center gap-4">
+              <button 
+                className="md:hidden p-2 hover:bg-slate-100 rounded-lg"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <Menu size={20} />
+              </button>
+              <h1 className="text-lg font-bold">
+                {activeTab === 'dashboard' && '📊 Tablero Operativo'}
+                {activeTab === 'pipeline' && '🧠 Kernel 19 Pasos'}
+                {activeTab === 'validator' && '🔍 Auditoría TEI / XML'}
+                {activeTab === 'protocol' && '📋 Protocolo de Revisión'}
+                {activeTab === 'manual' && '📖 Manual de Estilo'}
+              </h1>
+            </div>
+            {selectedSession && activeTab === 'pipeline' && (
+              <div className="text-sm text-slate-500">
+                Sesión activa: <span className="font-medium text-slate-700">{selectedSession.name}</span>
+              </div>
+            )}
         </header>
 
         <div className="flex-1 overflow-hidden relative">
+          {/* DASHBOARD TAB */}
           {activeTab === 'dashboard' && (
-             <div className="h-full overflow-y-auto p-4 md:p-8"><SessionCard session={sessions[0]} active={false} onClick={handleSessionSelect} /></div>
+             <div className="h-full overflow-y-auto p-4 md:p-8">
+               <div className="max-w-4xl mx-auto">
+                 <div className="mb-6">
+                   <h2 className="text-2xl font-bold text-slate-900 mb-2">Sesiones Plenarias</h2>
+                   <p className="text-slate-500">Selecciona una sesión para procesarla con el Kernel 19 Pasos</p>
+                 </div>
+                 <div className="grid gap-4">
+                   {sessions.map(session => (
+                     <SessionCard 
+                       key={session.id}
+                       session={session} 
+                       active={selectedSessionId === session.id} 
+                       onClick={handleSessionSelect} 
+                     />
+                   ))}
+                 </div>
+               </div>
+             </div>
           )}
 
+          {/* PIPELINE TAB - NUEVO */}
+          {activeTab === 'pipeline' && (
+            <PipelineTab 
+              sessionId={selectedSessionId || 'nueva'}
+              sessionName={selectedSession?.name || 'Nueva Sesión'}
+            />
+          )}
+
+          {/* VALIDATOR TAB */}
           {activeTab === 'validator' && (
              <div className="h-full overflow-y-auto p-4 md:p-8 bg-[#F8FAFC] custom-scrollbar">
                 <div className="max-w-6xl mx-auto flex flex-col h-full pb-12">
@@ -380,7 +344,7 @@ export default function App() {
                           <div className="flex-1 flex flex-col gap-2">
                              <FileUploader 
                                 accept=".txt,.md,.xml,.docx,.pdf" 
-                                multiple={true} // Enable multiple files
+                                multiple={true}
                                 onFilesSelected={handleValidatorFileUpload}
                                 label="Cargar Múltiples Borradores"
                                 subLabel="Soporta PDF (extracción auto), DOCX, TXT"
@@ -491,6 +455,102 @@ export default function App() {
                    </div>
                 </div>
              </div>
+          )}
+
+          {/* PROTOCOL TAB */}
+          {activeTab === 'protocol' && (
+            <div className="h-full overflow-y-auto p-4 md:p-8">
+              <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 p-8">
+                <h2 className="text-2xl font-bold mb-6">📋 Protocolo de Revisión y Ensamblaje</h2>
+                <div className="prose prose-slate max-w-none">
+                  <p className="text-slate-600 mb-4">
+                    El Kernel de 19 Pasos es el proceso agéntico que garantiza la calidad del acta final.
+                    Cada paso se ejecuta secuencialmente con validaciones automáticas.
+                  </p>
+                  
+                  <h3 className="text-lg font-bold mt-6 mb-3 text-blue-600">Fase 1: Ingeniería de Entrada (Pasos 1-5)</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Normalización de fuentes</li>
+                    <li>Fusión inteligente con deduplicación</li>
+                    <li>Unificación de paginación</li>
+                    <li>Verificación de quórum</li>
+                    <li>Estandarización del orden del día</li>
+                  </ul>
+                  
+                  <h3 className="text-lg font-bold mt-6 mb-3 text-purple-600">Fase 2: Auditoría de Contenido (Pasos 6-14)</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Intervenciones y cargos</li>
+                    <li>Citas y referencias legales</li>
+                    <li>Auditoría de video (cross-check)</li>
+                    <li>Validación matemática de votaciones</li>
+                    <li>Aplicación del Manual de Estilo V3_2026</li>
+                    <li>Gestión de inaudibles</li>
+                    <li>Marcas de tiempo</li>
+                    <li>Anonimización (Habeas Data)</li>
+                    <li>Control de retórica</li>
+                  </ul>
+                  
+                  <h3 className="text-lg font-bold mt-6 mb-3 text-emerald-600">Fase 3: Cierre y Exportación (Pasos 15-19)</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Verificación de proposiciones</li>
+                    <li>Cierre de sesión</li>
+                    <li>Bloque de firmas</li>
+                    <li>Revisión ortográfica final</li>
+                    <li>Reporte de relatoría</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MANUAL TAB */}
+          {activeTab === 'manual' && (
+            <div className="h-full overflow-y-auto p-4 md:p-8">
+              <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 p-8">
+                <h2 className="text-2xl font-bold mb-6">📖 Manual de Estilo V3_2026</h2>
+                <div className="prose prose-slate max-w-none space-y-6">
+                  
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <h3 className="text-lg font-bold text-blue-800 mb-2">1. Puntuación y Comillas</h3>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>• <strong>Nivel 1:</strong> Comillas inglesas ("...") para citas directas</li>
+                      <li>• <strong>Nivel 2:</strong> Comillas españolas («...») dentro de citas</li>
+                      <li>• <strong>Regla:</strong> El punto y la coma van DESPUÉS de las comillas</li>
+                      <li className="text-red-600">✗ Incorrecto: "La sesión terminó."</li>
+                      <li className="text-emerald-600">✓ Correcto: "La sesión terminó".</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                    <h3 className="text-lg font-bold text-purple-800 mb-2">2. Cifras y Moneda</h3>
+                    <ul className="text-sm text-purple-700 space-y-1">
+                      <li>• <strong>Formato:</strong> $ 20.000.000.000 (puntos de mil)</li>
+                      <li>• <strong>Alternativa:</strong> $ 20.000 millones</li>
+                      <li>• <strong>Porcentajes:</strong> Separados de la cifra (50 %)</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                    <h3 className="text-lg font-bold text-emerald-800 mb-2">3. Cargos y Entidades</h3>
+                    <ul className="text-sm text-emerald-700 space-y-1">
+                      <li>• <strong>Cargos:</strong> MINÚSCULA (secretario, alcalde, concejal)</li>
+                      <li>• <strong>Entidades:</strong> MAYÚSCULA (Concejo de Medellín, Secretaría de Hacienda)</li>
+                      <li className="text-emerald-600">✓ "El secretario de Hacienda presentó el informe"</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                    <h3 className="text-lg font-bold text-amber-800 mb-2">4. Votaciones</h3>
+                    <ul className="text-sm text-amber-700 space-y-1">
+                      <li>• <strong>Formato dual:</strong> Número + letras en paréntesis</li>
+                      <li>• <strong>Regla:</strong> NO contar ausentes en el total</li>
+                      <li className="text-emerald-600">✓ "Aprobado con 21 (veintiún) votos positivos"</li>
+                    </ul>
+                  </div>
+                  
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </main>
