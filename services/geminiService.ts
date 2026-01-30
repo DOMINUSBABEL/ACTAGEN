@@ -16,16 +16,20 @@ ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORM
 2. **MAYÚSCULAS Y MINÚSCULAS (USO INSTITUCIONAL):**
    - **CARGOS (Minúscula):** inspectores, corregidores, secretario, alcalde, concejal, comisario.
    - **INFRAESTRUCTURA (Minúscula):** estación de policía, comisaría de familia (genérico).
-   - **ENTIDADES (Mayúscula):** Unidad de Reacción Inmediata, Concejo de Medellín, Secretaría de Hacienda.
+   - **ENTIDADES (Mayúscula):** Unidad de Reacción Inmediata, Concejo de Medellín, Secretaría de Hacienda, ICBF.
    - *Nota:* Si hay duda, prefiere minúscula para cargos.
 
 3. **CIFRAS Y VOTACIONES:**
    - **VOTACIONES:** ÚNICO caso donde se usa número y letra. Ej: "5 (cinco) votos".
    - **DINERO/OTROS:** Solo la cifra con puntos de mil. Ej: "$ 20.000.000". NO usar paréntesis aquí.
 
-4. **ORTOGRAFÍA Y LIMPIEZA:**
+4. **IDENTIFICACIÓN DE ORADORES (CRÍTICO):**
+   - Siempre busca identificar la ENTIDAD. (Ej: "Líder del ICBF", no solo "Líder").
+   - Si la entidad no se menciona pero es evidente por el contexto, agrégala entre corchetes: "Gerente [de EPM]".
+
+5. **ORTOGRAFÍA Y LIMPIEZA:**
    - Corrige tildes faltantes y errores de digitación evidentes.
-   - Elimina muletillas excesivas si no alteran el sentido (ej: "eh", "este...").
+   - Elimina muletillas excesivas si no alteran el sentido.
 
 ### PROTOCOLO DE PROCESAMIENTO:
 - Si el audio es largo, procesa por fases sin resumir.
@@ -43,24 +47,28 @@ Debes devolver el texto EXACTO original, pero envolviendo los errores en etiquet
 Atributos requeridos:
 - **suggestion**: La corrección lista para aplicar.
 - **reason**: Una explicación AMABLE y CLARA en español para la digitadora.
-- **type**: Categoría (ortografia, estilo, formato).
+- **type**: Categoría (ortografia, estilo, formato, entidad_faltante).
 
 ### REGLAS PARA DETECTAR Y ETIQUETAR:
 
-1. **Ortografía (CRÍTICO):**
+1. **Falta de Entidad (PRIORIDAD ALTA):**
+   - Si ves un nombre con cargo (Ej: "Líder de equipo", "Coordinadora", "Invitada") pero NO dice a qué entidad pertenece (Alcaldía, ICBF, EPM, ONG, etc.).
+   - Tag: <FLAW type="entidad_faltante" suggestion="[Cargo] de [¿ENTIDAD?], [Nombre]" reason="Falta especificar la entidad (ICBF, Alcaldía, etc.). Verificar en video.">texto_original</FLAW>
+
+2. **Ortografía (CRÍTICO):**
    - Detecta tildes faltantes, palabras mal escritas o typos.
    - Tag: <FLAW type="ortografia" suggestion="palabra_correcta" reason="Error de digitación u ortografía">palabra_mal</FLAW>
 
-2. **Comillas Angulares:**
+3. **Comillas Angulares:**
    - Si ves comillas inglesas (" ") o simples (' '), sugiere cambiar a (« »).
    - Reason: "Acordamos usar comillas angulares (« ») por convención."
 
-3. **Mayúsculas/Minúsculas:**
+4. **Mayúsculas/Minúsculas:**
    - "Inspector", "Corregidor" -> SUGIERE minúscula.
-   - "unidad de reacción inmediata" -> SUGIERE Mayúscula.
+   - "unidad de reacción inmediata", "icbf" -> SUGIERE Mayúscula/Sigla.
    - Reason: "Los cargos van en minúscula; Entidades propias en mayúscula."
 
-4. **Espacios y Puntuación:**
+5. **Espacios y Puntuación:**
    - "» ." (Espacio entre comilla y punto) -> SUGIERE "»."
    - Reason: "El punto debe ir pegado a la comilla de cierre."
 
@@ -281,9 +289,10 @@ ${chunk}
 
 TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN.
 1. Copia el texto EXACTAMENTE igual (Verbatim).
-2. Inserta etiquetas <FLAW> donde haya errores de ortografía, comillas incorrectas (deben ser «...») o mayúsculas mal usadas (cargos en minúscula).
-3. En el atributo 'reason', explica el error en español sencillo.
-4. NO RESUMAS.`;
+2. Analiza con CUIDADO si faltan datos de la ENTIDAD de los funcionarios (ej: "Líder Ana Ruiz" sin decir ICBF o Alcaldía).
+3. Inserta etiquetas <FLAW> para errores de ortografía, estilo o entidad faltante.
+4. En 'reason', explica en español sencillo por qué se marca.
+5. NO RESUMAS.`;
 
              const response = await this.generateWithFallback(
                 {

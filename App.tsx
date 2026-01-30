@@ -29,7 +29,9 @@ import {
   Check,
   AlertTriangle,
   PenTool,
-  Type
+  Type,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -386,6 +388,7 @@ export default function App() {
   
   // Updated Mapping for Spanish-friendly labels
   const getLabelForType = (type: string) => {
+      if (type.includes('entidad') || type.includes('entity')) return { label: 'Entidad Faltante', color: 'bg-purple-100 text-purple-700' };
       if (type.includes('estilo') || type.includes('style')) return { label: 'Estilo / Convención', color: 'bg-yellow-100 text-yellow-700' };
       if (type.includes('ortografia') || type.includes('spelling')) return { label: 'Ortografía', color: 'bg-red-100 text-red-700' };
       if (type.includes('puntuacion') || type.includes('punctuation')) return { label: 'Puntuación', color: 'bg-orange-100 text-orange-700' };
@@ -414,7 +417,7 @@ export default function App() {
                         <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Layers size={32} /></div>
                         <div>
                           <h2 className="text-2xl font-bold text-slate-900">Revisión y Ensamble de Borradores</h2>
-                          <p className="text-slate-500">Carga las partes del acta (Part 1, 2, 3) y el asistente las unirá, verificando estilo, ortografía y formato.</p>
+                          <p className="text-slate-500">Carga las partes del acta (Part 1, 2, 3) y el asistente las unirá, verificando estilo, ortografía y entidades faltantes.</p>
                         </div>
                       </div>
 
@@ -511,6 +514,7 @@ export default function App() {
                                                    if (type.includes('puntuacion')) highlightClass = 'bg-orange-100 decoration-orange-400 text-orange-900';
                                                    if (type.includes('ortografia')) highlightClass = 'bg-red-100 decoration-red-400 text-red-900';
                                                    if (type.includes('formato')) highlightClass = 'bg-blue-100 decoration-blue-400 text-blue-900';
+                                                   if (type.includes('entidad')) highlightClass = 'bg-purple-100 decoration-purple-400 text-purple-900';
 
                                                    const isSelected = selectedFlaw?.id === id;
 
@@ -562,9 +566,15 @@ export default function App() {
                                        </div>
 
                                        <div className="flex justify-center">
-                                           <div className="bg-slate-100 rounded-full p-2 text-slate-400">
-                                               <PenTool size={20} />
-                                           </div>
+                                           {selectedFlaw.type.includes('entidad') ? (
+                                               <div className="bg-purple-100 rounded-full p-2 text-purple-600 animate-bounce">
+                                                    <Search size={20} />
+                                               </div>
+                                           ) : (
+                                               <div className="bg-slate-100 rounded-full p-2 text-slate-400">
+                                                    <PenTool size={20} />
+                                               </div>
+                                           )}
                                        </div>
 
                                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm">
@@ -578,10 +588,23 @@ export default function App() {
                                             </div>
                                        )}
 
-                                       <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-all">
-                                           <Check size={18} />
-                                           Aceptar Cambio
-                                       </button>
+                                       {selectedFlaw.type.includes('entidad') && activeSession?.youtubeUrl ? (
+                                            <a 
+                                                href={activeSession.youtubeUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200 flex items-center justify-center gap-2 transition-all mb-2"
+                                            >
+                                                <Youtube size={18} />
+                                                Verificar en YouTube
+                                            </a>
+                                       ) : (
+                                            <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-all">
+                                                <Check size={18} />
+                                                Aceptar Cambio
+                                            </button>
+                                       )}
+                                       
                                        <p className="text-center text-xs text-slate-400 mt-2">
                                            Este es un visor previo. Use el botón superior "Descargar Borrador" para obtener el texto corregido.
                                        </p>
