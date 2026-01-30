@@ -2,52 +2,69 @@ import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 
 // Definimos la instrucción del sistema con esteroides para evitar resúmenes.
 const SYSTEM_INSTRUCTION = `
-Eres "ActaGen", el Relator Oficial del Concejo de Medellín. TU OBJETIVO ES LA PRECISIÓN Y LA EXTENSIÓN.
+Eres "ActaGen", el Asistente Oficial de Relatoría del Concejo. TU OBJETIVO ES AYUDAR A LA DIGITADORA A CREAR UN BORRADOR PERFECTO.
 ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORMALIZADO".
 
-### REGLAS DE ESTILO V3_2026 (MANDATORIAS):
-1. **PUNTUACIÓN Y COMILLAS:**
-   - Usa comillas INGLESAS (“...”) como principales.
-   - Usa comillas ESPAÑOLAS («...») SOLO dentro de las inglesas.
-   - El punto (.) y la coma (,) van SIEMPRE DESPUÉS de las comillas de cierre. (Ej: “Terminó la sesión”.)
-2. **CIFRAS Y MONEDA:**
-   - Formato: $ 20.000.000.000 (Puntos de mil).
-   - Opcional: "$ 20.000 millones".
-3. **MAYÚSCULAS:**
-   - CARGOS: minúscula (secretario, alcalde, concejal).
-   - ENTIDADES: Mayúscula (Secretaría de Hacienda, Concejo de Medellín).
-   - Ej: "El secretario de Hacienda dijo..."
-4. **VOTACIONES:**
-   - Resultado en número y letra: "21 (veintiún) votos".
-   - NO contar ausentes en el total.
+### REGLAS DE ESTILO V4_2026 (ACTUALIZADAS SEGÚN ACUERDO INTERNO):
+
+1. **PUNTUACIÓN Y COMILLAS (CONVENCIÓN ACORDADA):**
+   - **PRINCIPALES:** Usa comillas ANGULARES O DE COCODRILO («...») para citas y diálogos.
+   - **PUNTUACIÓN:** El punto (.) va SIEMPRE INMEDIATAMENTE DESPUÉS de la comilla de cierre.
+     - *Correcto:* «Se levanta la sesión».
+     - *Incorrecto:* «Se levanta la sesión» . (Sin espacio entre » y .)
+   
+2. **MAYÚSCULAS Y MINÚSCULAS (USO INSTITUCIONAL):**
+   - **CARGOS (Minúscula):** inspectores, corregidores, secretario, alcalde, concejal, comisario.
+   - **INFRAESTRUCTURA (Minúscula):** estación de policía, comisaría de familia (genérico).
+   - **ENTIDADES (Mayúscula):** Unidad de Reacción Inmediata, Concejo de Medellín, Secretaría de Hacienda.
+   - *Nota:* Si hay duda, prefiere minúscula para cargos.
+
+3. **CIFRAS Y VOTACIONES:**
+   - **VOTACIONES:** ÚNICO caso donde se usa número y letra. Ej: "5 (cinco) votos".
+   - **DINERO/OTROS:** Solo la cifra con puntos de mil. Ej: "$ 20.000.000". NO usar paréntesis aquí.
+
+4. **ORTOGRAFÍA Y LIMPIEZA:**
+   - Corrige tildes faltantes y errores de digitación evidentes.
+   - Elimina muletillas excesivas si no alteran el sentido (ej: "eh", "este...").
 
 ### PROTOCOLO DE PROCESAMIENTO:
 - Si el audio es largo, procesa por fases sin resumir.
-- Usa tono solemne parlamentario.
 - Identifica voces con precisión.
 `;
 
-// PROMPT DE AUDITORÍA: Configurado como motor de regex semántico, no como chat.
+// PROMPT DE AUDITORÍA: Configurado para explicar en ESPAÑOL CLARO a un funcionario no técnico.
 const AUDIT_SYSTEM_INSTRUCTION = `
-ROLE: XML TEXT TAGGING ENGINE.
-TASK: Receive input text and return it EXACTLY verbatim, injecting <FLAW> tags for style violations.
+ROL: ASISTENTE DE REVISIÓN Y CORRECCIÓN DE ESTILO.
+TAREA: Analizar el texto y sugerir correcciones basadas en el Manual V4.
 
-### CRITICAL RULES (ZERO TOLERANCE FOR SUMMARIZATION):
-1. **FULL ECHO**: The text outside the tags MUST match the input character-for-character.
-2. **NO OMISSION**: Do not skip sentences, headers, or footers.
-3. **NO COMMENTS**: Do not output "Here is the text", "Processed:", or markdown code blocks. Just the raw XML-tagged text.
+### INSTRUCCIONES DE SALIDA (TEI/XML):
+Debes devolver el texto EXACTO original, pero envolviendo los errores en etiquetas <FLAW>.
 
-### STYLE RULES (MANUAL V3_2026):
-Tag errors using: <FLAW type="[type]" suggestion="[correction]">original_text</FLAW>
+Atributos requeridos:
+- **suggestion**: La corrección lista para aplicar.
+- **reason**: Una explicación AMABLE y CLARA en español para la digitadora.
+- **type**: Categoría (ortografia, estilo, formato).
 
-1. **Hierarchy of Quotes**:
-   - Error: "Text" or 'Text'. -> Suggestion: “Text” (English quotes).
-   - Error: .”, -> Suggestion: ”., (Punctuation OUTSIDE).
-2. **Capitalization**:
-   - Error: "Secretario", "Alcalde" (Positions). -> Suggestion: "secretario", "alcalde".
-   - Error: "secretaría de hacienda" (Entities). -> Suggestion: "Secretaría de Hacienda".
-3. **Numbers**:
-   - Error: "20 mil". -> Suggestion: "$ 20.000".
+### REGLAS PARA DETECTAR Y ETIQUETAR:
+
+1. **Ortografía (CRÍTICO):**
+   - Detecta tildes faltantes, palabras mal escritas o typos.
+   - Tag: <FLAW type="ortografia" suggestion="palabra_correcta" reason="Error de digitación u ortografía">palabra_mal</FLAW>
+
+2. **Comillas Angulares:**
+   - Si ves comillas inglesas (" ") o simples (' '), sugiere cambiar a (« »).
+   - Reason: "Acordamos usar comillas angulares (« ») por convención."
+
+3. **Mayúsculas/Minúsculas:**
+   - "Inspector", "Corregidor" -> SUGIERE minúscula.
+   - "unidad de reacción inmediata" -> SUGIERE Mayúscula.
+   - Reason: "Los cargos van en minúscula; Entidades propias en mayúscula."
+
+4. **Espacios y Puntuación:**
+   - "» ." (Espacio entre comilla y punto) -> SUGIERE "»."
+   - Reason: "El punto debe ir pegado a la comilla de cierre."
+
+NO RESUMAS. DEVUELVE TODO EL TEXTO.
 `;
 
 export interface GeminiResponse {
@@ -135,10 +152,6 @@ class GeminiService {
     }
   }
 
-  // CHUNK SIZE REDUCIDO A 4000 PARA GARANTIZAR SEGURIDAD TOTAL EN EL OUTPUT.
-  // 4000 chars ~= 1000 tokens de input.
-  // El modelo devuelve ~= 1000-1200 tokens de output (texto + tags).
-  // Límite del modelo es 8192. Estamos sobrados de margen, lo que evita cortes.
   private chunkText(text: string, chunkSize: number = 4000): string[] {
     const chunks: string[] = [];
     let currentIndex = 0;
@@ -147,7 +160,7 @@ class GeminiService {
       // Intentar cortar en un salto de línea para no romper frases
       if (end < text.length) {
         const nextNewLine = text.indexOf('\n', end);
-        if (nextNewLine !== -1 && nextNewLine - end < 500) { // Look ahead limit reduced
+        if (nextNewLine !== -1 && nextNewLine - end < 500) { 
             end = nextNewLine;
         } else {
              // Fallback: buscar espacio
@@ -237,7 +250,6 @@ class GeminiService {
     onProgress?: (current: number, total: number) => void
   ): Promise<string> {
     try {
-      // 1. Consolidación de texto de entrada
       let allText = "";
       let hasBinary = false;
 
@@ -250,10 +262,7 @@ class GeminiService {
         }
       }
 
-      // 2. Lógica de Tubería (Piping)
       if (!hasBinary && allText.length > 0) {
-        // Usamos chunks más pequeños para asegurar que el output (que es input + tags) 
-        // nunca exceda el límite de tokens de salida.
         const chunks = this.chunkText(allText, 4000); 
         console.log(`[Audit] Processing ${allText.length} chars in ${chunks.length} chunks.`);
         
@@ -266,23 +275,22 @@ class GeminiService {
                  onProgress(i + 1, chunks.length);
              }
 
-             // El prompt es una orden de REPRODUCCIÓN, no de análisis.
              const prompt = `INPUT_DATA_START:
 ${chunk}
 :INPUT_DATA_END
 
-TASK: REPRODUCE THE INPUT DATA EXACTLY.
-1. Copy the text inside INPUT_DATA_START and INPUT_DATA_END word-for-word.
-2. While copying, inject <FLAW> tags where style rules are violated.
-3. DO NOT SUMMARIZE. DO NOT TRUNCATE.
-4. Output ONLY the tagged text.`;
+TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN.
+1. Copia el texto EXACTAMENTE igual (Verbatim).
+2. Inserta etiquetas <FLAW> donde haya errores de ortografía, comillas incorrectas (deben ser «...») o mayúsculas mal usadas (cargos en minúscula).
+3. En el atributo 'reason', explica el error en español sencillo.
+4. NO RESUMAS.`;
 
              const response = await this.generateWithFallback(
                 {
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     config: {
                         systemInstruction: AUDIT_SYSTEM_INSTRUCTION,
-                        temperature: 0.0, // Determinismo máximo
+                        temperature: 0.0,
                         maxOutputTokens: 8192,
                     }
                 },
@@ -290,18 +298,15 @@ TASK: REPRODUCE THE INPUT DATA EXACTLY.
                 'gemini-flash-latest'
              );
              
-             // Limpieza básica por si el modelo devuelve markdown extra
              let resultText = response.text || "";
              resultText = resultText.replace(/^```xml\n/, '').replace(/^```\n/, '').replace(/\n```$/, '');
              
              results.push(resultText);
         }
         
-        // Reconstrucción del documento total
         return results.join(""); 
       }
 
-      // Fallback para binarios (imágenes/audio) donde no podemos hacer chunking de texto
       const userMessage = {
         role: 'user',
         parts: [
