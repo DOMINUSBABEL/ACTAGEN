@@ -10,30 +10,24 @@ ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORM
 1. **PUNTUACIÓN Y COMILLAS (CONVENCIÓN ACORDADA):**
    - **PRINCIPALES:** Usa comillas ANGULARES O DE COCODRILO («...») para citas y diálogos.
    - **PUNTUACIÓN:** El punto (.) va SIEMPRE INMEDIATAMENTE DESPUÉS de la comilla de cierre.
-     - *Correcto:* «Se levanta la sesión».
-     - *Incorrecto:* «Se levanta la sesión» . (Sin espacio entre » y .)
    
 2. **MAYÚSCULAS Y MINÚSCULAS (USO INSTITUCIONAL):**
    - **CARGOS (Minúscula):** inspectores, corregidores, secretario, alcalde, concejal, comisario.
-   - **INFRAESTRUCTURA (Minúscula):** estación de policía, comisaría de familia (genérico).
    - **ENTIDADES (Mayúscula):** Unidad de Reacción Inmediata, Concejo de Medellín, Secretaría de Hacienda, ICBF.
-   - *Nota:* Si hay duda, prefiere minúscula para cargos.
 
 3. **CIFRAS Y VOTACIONES:**
    - **VOTACIONES:** ÚNICO caso donde se usa número y letra. Ej: "5 (cinco) votos".
-   - **DINERO/OTROS:** Solo la cifra con puntos de mil. Ej: "$ 20.000.000". NO usar paréntesis aquí.
+   - **DINERO/OTROS:** Solo la cifra con puntos de mil. Ej: "$ 20.000.000".
 
-4. **IDENTIFICACIÓN DE ORADORES (CRÍTICO):**
+4. **IDENTIFICACIÓN DE ORADORES:**
    - Siempre busca identificar la ENTIDAD. (Ej: "Líder del ICBF", no solo "Líder").
-   - Si la entidad no se menciona pero es evidente por el contexto, agrégala entre corchetes: "Gerente [de EPM]".
 
-5. **ORTOGRAFÍA Y LIMPIEZA:**
-   - Corrige tildes faltantes y errores de digitación evidentes.
-   - Elimina muletillas excesivas si no alteran el sentido.
+5. **LIMPIEZA EDITORIAL Y COHERENCIA (NUEVO):**
+   - **Basura:** Elimina residuos de edición (letras sueltas como "her", "k", "asdf" al inicio de párrafos).
+   - **Coherencia:** Si una palabra suena igual pero no tiene sentido en el contexto (Ej: "viven caminando" vs "vienen caminando"), sugiérelo.
 
 ### PROTOCOLO DE PROCESAMIENTO:
 - Si el audio es largo, procesa por fases sin resumir.
-- Identifica voces con precisión.
 `;
 
 // PROMPT DE AUDITORÍA: Configurado para explicar en ESPAÑOL CLARO a un funcionario no técnico.
@@ -46,31 +40,26 @@ Debes devolver el texto EXACTO original, pero envolviendo los errores en etiquet
 
 Atributos requeridos:
 - **suggestion**: La corrección lista para aplicar.
-- **reason**: Una explicación AMABLE y CLARA en español para la digitadora.
-- **type**: Categoría (ortografia, estilo, formato, entidad_faltante).
+- **reason**: Una explicación AMABLE y CLARA en español.
+- **type**: Categoría (ortografia, estilo, formato, entidad_faltante, basura_editorial, coherencia).
 
 ### REGLAS PARA DETECTAR Y ETIQUETAR:
 
-1. **Falta de Entidad (PRIORIDAD ALTA):**
-   - Si ves un nombre con cargo (Ej: "Líder de equipo", "Coordinadora", "Invitada") pero NO dice a qué entidad pertenece (Alcaldía, ICBF, EPM, ONG, etc.).
-   - Tag: <FLAW type="entidad_faltante" suggestion="[Cargo] de [¿ENTIDAD?], [Nombre]" reason="Falta especificar la entidad (ICBF, Alcaldía, etc.). Verificar en video.">texto_original</FLAW>
+1. **Basura Editorial (RESIDUOS):**
+   - Busca fragmentos de texto aislados o sin sentido al inicio de líneas que parecen errores de dedo (Ej: "her", "a", "sdf").
+   - Tag: <FLAW type="basura_editorial" suggestion="" reason="Parece un residuo de edición o error de dedo. Eliminar.">texto_basura</FLAW>
 
-2. **Ortografía (CRÍTICO):**
-   - Detecta tildes faltantes, palabras mal escritas o typos.
-   - Tag: <FLAW type="ortografia" suggestion="palabra_correcta" reason="Error de digitación u ortografía">palabra_mal</FLAW>
+2. **Duda de Coherencia (SEMÁNTICA/FONÉTICA):**
+   - Si una frase es gramaticalmente correcta pero extraña en contexto, y suena parecido a otra palabra más lógica.
+   - Ej: "viven caminando" -> Contexto: migración. Probable: "vienen caminando".
+   - Tag: <FLAW type="coherencia" suggestion="¿vienen?" reason="Posible confusión fonética. ¿Dijo 'vienen' en lugar de 'viven'? Verificar en video.">viven</FLAW>
 
-3. **Comillas Angulares:**
-   - Si ves comillas inglesas (" ") o simples (' '), sugiere cambiar a (« »).
-   - Reason: "Acordamos usar comillas angulares (« ») por convención."
+3. **Falta de Entidad:**
+   - Nombres con cargo pero sin entidad (ICBF, Alcaldía).
+   - Tag: <FLAW type="entidad_faltante" ...>...</FLAW>
 
-4. **Mayúsculas/Minúsculas:**
-   - "Inspector", "Corregidor" -> SUGIERE minúscula.
-   - "unidad de reacción inmediata", "icbf" -> SUGIERE Mayúscula/Sigla.
-   - Reason: "Los cargos van en minúscula; Entidades propias en mayúscula."
-
-5. **Espacios y Puntuación:**
-   - "» ." (Espacio entre comilla y punto) -> SUGIERE "»."
-   - Reason: "El punto debe ir pegado a la comilla de cierre."
+4. **Reglas Estándar:**
+   - Ortografía, Comillas Angulares (« »), Mayúsculas Institucionales.
 
 NO RESUMAS. DEVUELVE TODO EL TEXTO.
 `;
@@ -289,9 +278,9 @@ ${chunk}
 
 TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN.
 1. Copia el texto EXACTAMENTE igual (Verbatim).
-2. Analiza con CUIDADO si faltan datos de la ENTIDAD de los funcionarios (ej: "Líder Ana Ruiz" sin decir ICBF o Alcaldía).
-3. Inserta etiquetas <FLAW> para errores de ortografía, estilo o entidad faltante.
-4. En 'reason', explica en español sencillo por qué se marca.
+2. DETECTA BASURA: Si ves residuos como "her" o letras sueltas al inicio de párrafo, márcalo.
+3. DETECTA COHERENCIA: Si una frase suena rara (ej: "viven caminando" vs "vienen caminando"), márcalo para verificar en video.
+4. DETECTA ENTIDADES FALTANTES.
 5. NO RESUMAS.`;
 
              const response = await this.generateWithFallback(

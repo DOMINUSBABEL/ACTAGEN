@@ -31,7 +31,8 @@ import {
   PenTool,
   Type,
   Search,
-  ExternalLink
+  ExternalLink,
+  Ear
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -386,8 +387,10 @@ export default function App() {
       </div>
   );
   
-  // Updated Mapping for Spanish-friendly labels
+  // Updated Mapping for Spanish-friendly labels including new "Trash" and "Coherence"
   const getLabelForType = (type: string) => {
+      if (type.includes('basura')) return { label: 'Basura Editorial / Typo', color: 'bg-slate-200 text-slate-600' };
+      if (type.includes('coherencia')) return { label: 'Duda Semántica (¿Audio?)', color: 'bg-orange-100 text-orange-700' };
       if (type.includes('entidad') || type.includes('entity')) return { label: 'Entidad Faltante', color: 'bg-purple-100 text-purple-700' };
       if (type.includes('estilo') || type.includes('style')) return { label: 'Estilo / Convención', color: 'bg-yellow-100 text-yellow-700' };
       if (type.includes('ortografia') || type.includes('spelling')) return { label: 'Ortografía', color: 'bg-red-100 text-red-700' };
@@ -417,7 +420,7 @@ export default function App() {
                         <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Layers size={32} /></div>
                         <div>
                           <h2 className="text-2xl font-bold text-slate-900">Revisión y Ensamble de Borradores</h2>
-                          <p className="text-slate-500">Carga las partes del acta (Part 1, 2, 3) y el asistente las unirá, verificando estilo, ortografía y entidades faltantes.</p>
+                          <p className="text-slate-500">Carga las partes del acta (Part 1, 2, 3) y el asistente las unirá, verificando coherencia semántica, residuos y formato.</p>
                         </div>
                       </div>
 
@@ -515,6 +518,10 @@ export default function App() {
                                                    if (type.includes('ortografia')) highlightClass = 'bg-red-100 decoration-red-400 text-red-900';
                                                    if (type.includes('formato')) highlightClass = 'bg-blue-100 decoration-blue-400 text-blue-900';
                                                    if (type.includes('entidad')) highlightClass = 'bg-purple-100 decoration-purple-400 text-purple-900';
+                                                   
+                                                   // New Styles
+                                                   if (type.includes('basura')) highlightClass = 'bg-slate-300 decoration-slate-500 text-slate-500 line-through opacity-60';
+                                                   if (type.includes('coherencia')) highlightClass = 'bg-orange-100 decoration-orange-400 text-orange-900 border-orange-200';
 
                                                    const isSelected = selectedFlaw?.id === id;
 
@@ -522,7 +529,7 @@ export default function App() {
                                                        <span 
                                                            key={index} 
                                                            onClick={() => setSelectedFlaw({ id, original: content, suggestion, type, reason })}
-                                                           className={`cursor-pointer px-1 rounded mx-0.5 border-b-2 transition-all ${highlightClass} ${isSelected ? 'ring-2 ring-purple-500 ring-offset-1' : ''} border-dashed`}
+                                                           className={`cursor-pointer px-1 rounded mx-0.5 border-b-2 transition-all ${highlightClass} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''} border-dashed`}
                                                            title="Clic para revisar"
                                                        >
                                                            {content}
@@ -570,6 +577,14 @@ export default function App() {
                                                <div className="bg-purple-100 rounded-full p-2 text-purple-600 animate-bounce">
                                                     <Search size={20} />
                                                </div>
+                                           ) : selectedFlaw.type.includes('basura') ? (
+                                                <div className="bg-slate-100 rounded-full p-2 text-slate-400">
+                                                    <Trash2 size={20} />
+                                                </div>
+                                           ) : selectedFlaw.type.includes('coherencia') ? (
+                                                <div className="bg-orange-100 rounded-full p-2 text-orange-600">
+                                                    <Ear size={20} />
+                                                </div>
                                            ) : (
                                                <div className="bg-slate-100 rounded-full p-2 text-slate-400">
                                                     <PenTool size={20} />
@@ -579,7 +594,7 @@ export default function App() {
 
                                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm">
                                            <div className="text-xs text-green-600 font-bold uppercase mb-1 flex items-center gap-1"><Check size={12}/> Sugerencia de Cambio</div>
-                                           <div className="text-green-900 font-bold text-lg break-words">{selectedFlaw.suggestion}</div>
+                                           <div className="text-green-900 font-bold text-lg break-words">{selectedFlaw.suggestion || '(Eliminar)'}</div>
                                        </div>
 
                                        {selectedFlaw.reason && (
@@ -588,7 +603,7 @@ export default function App() {
                                             </div>
                                        )}
 
-                                       {selectedFlaw.type.includes('entidad') && activeSession?.youtubeUrl ? (
+                                       {(selectedFlaw.type.includes('entidad') || selectedFlaw.type.includes('coherencia')) && activeSession?.youtubeUrl ? (
                                             <a 
                                                 href={activeSession.youtubeUrl} 
                                                 target="_blank" 
@@ -596,7 +611,7 @@ export default function App() {
                                                 className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200 flex items-center justify-center gap-2 transition-all mb-2"
                                             >
                                                 <Youtube size={18} />
-                                                Verificar en YouTube
+                                                Verificar Audio en YouTube
                                             </a>
                                        ) : (
                                             <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-all">
