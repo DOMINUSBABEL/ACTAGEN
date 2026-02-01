@@ -32,7 +32,11 @@ import {
   Type,
   Search,
   ExternalLink,
-  Ear
+  Ear,
+  ChevronLeft,
+  ChevronRight,
+  FileEdit,
+  ArrowRight
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -88,6 +92,8 @@ interface FlawDetail {
     type: string;
     reason?: string;
     id: string; // Unique ID for key mapping
+    fullTag?: string; // To replace in string
+    index?: number;
 }
 
 // Helper to convert file to Base64
@@ -142,10 +148,12 @@ export default function App() {
   const [isValidating, setIsValidating] = useState(false);
   const [auditProgress, setAuditProgress] = useState<{current: number, total: number}>({ current: 0, total: 0 });
   
-  // New State for Visual Editor
+  // New State for Visual Editor & Navigation
   const [viewMode, setViewMode] = useState<'code' | 'visual'>('visual');
   const [selectedFlaw, setSelectedFlaw] = useState<FlawDetail | null>(null);
-
+  const [currentFlawIndex, setCurrentFlawIndex] = useState<number>(-1);
+  const [totalFlaws, setTotalFlaws] = useState<number>(0);
+  
   const [generatedDocument, setGeneratedDocument] = useState<string>('');
   
   const [showImportModal, setShowImportModal] = useState(false);
@@ -167,6 +175,19 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isProcessing, terminalLines]);
+
+  // Effect to count flaws when xmlResult changes
+  useEffect(() => {
+      if (xmlResult) {
+          const matches = xmlResult.match(/<FLAW[^>]*>.*?<\/FLAW>/g);
+          setTotalFlaws(matches ? matches.length : 0);
+          // If we have flaws but none selected, select first? No, let user drive.
+      } else {
+          setTotalFlaws(0);
+          setCurrentFlawIndex(-1);
+          setSelectedFlaw(null);
+      }
+  }, [xmlResult]);
 
   const activeSession = sessions.find(s => s.id === selectedSessionId);
 
@@ -231,7 +252,6 @@ export default function App() {
     
     try {
       await new Promise(r => setTimeout(r, 500));
-      // Send the array of parts (files)
       const result = await geminiService.auditTextWithTEI(validatorParts, (current, total) => {
           setAuditProgress({ current, total });
       });
@@ -270,6 +290,54 @@ export default function App() {
       link.click();
       document.body.removeChild(link);
   };
+  
+  // NEW: Download Review Doc (Word-like HTML for visual diffs)
+  const handleDownloadReviewDoc = () => {
+      if (!xmlResult) return;
+      
+      // We'll create a simple HTML that Word interprets as track changes (visual only)
+      // <strike>Original</strike> <u>Suggestion</u>
+      let htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Revisión ActaGen</title>
+      <style>
+        body { font-family: 'Times New Roman', serif; font-size: 12pt; }
+        .flaw-original { background-color: #ffe6e6; text-decoration: line-through; color: #cc0000; }
+        .flaw-suggestion { background-color: #e6ffe6; text-decoration: underline; color: #006600; font-weight: bold; }
+        .flaw-reason { font-size: 9pt; color: #666; font-style: italic; }
+      </style>
+      </head><body>
+      `;
+      
+      let processed = xmlResult;
+      // Replace FLAW tags with HTML spans
+      processed = processed.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*reason="([^"]*)"[^>]*>(.*?)<\/FLAW>/g, 
+        (match, suggestion, reason, original) => {
+           return `<span class="flaw-original">${original}</span> <span class="flaw-suggestion">${suggestion}</span> <span class="flaw-reason">[${reason}]</span>`;
+        });
+      // Handle cases with no reason or different attrib order (simplified regex for demo, ideally parse properly)
+      // Fallback for simpler tags
+      processed = processed.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>(.*?)<\/FLAW>/g, 
+          (match, suggestion, original) => {
+             // Avoid double replace if previous regex caught it
+             if(match.includes('class="flaw-')) return match; 
+             return `<span class="flaw-original">${original}</span> <span class="flaw-suggestion">${suggestion}</span>`;
+          });
+          
+      // Convert newlines to breaks
+      processed = processed.replace(/\n/g, '<br/>');
+      
+      htmlContent += processed + "</body></html>";
+      
+      const blob = new Blob([htmlContent], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `REVISION_CON_CAMBIOS_${new Date().getTime()}.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
 
   const handleValidatorFileUpload = async (files: File[]) => {
     if (files && files.length > 0) {
@@ -278,17 +346,13 @@ export default function App() {
         setXmlResult(''); 
         
         const newParts: any[] = [];
-        
-        // We now process files sequentially to handle extraction correctly
         for (const file of files) {
-             // STRATEGY CHANGE: Extract text from PDF client-side to allow chunking
              if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
                  try {
                      const extractedText = await extractTextFromPDF(file);
                      newParts.push({ text: `[ARCHIVO PDF EXTRAÍDO: ${file.name}]\n${extractedText}` });
                  } catch (e) { 
                      console.error("PDF Text Extraction Error", e);
-                     // Fallback to binary if extraction fails (though extraction is preferred)
                      const base64Data = await new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
@@ -299,7 +363,6 @@ export default function App() {
                      });
                  }
             } else {
-                // Text/XML/Code/DOCX (treated as text for now, ideally convert docx to text too)
                 const text = await new Promise((resolve) => {
                      const reader = new FileReader();
                      reader.onload = (e) => resolve(e.target?.result as string);
@@ -308,7 +371,6 @@ export default function App() {
                 newParts.push({ text: `[ARCHIVO: ${file.name}]\n${text}` });
             }
         }
-        
         setValidatorParts(prev => [...prev, ...newParts]);
     }
   };
@@ -319,6 +381,8 @@ export default function App() {
       setXmlResult('');
       setAuditProgress({ current: 0, total: 0 });
       setSelectedFlaw(null);
+      setCurrentFlawIndex(-1);
+      setTotalFlaws(0);
   };
 
   const handleDownloadDocx = () => {
@@ -332,8 +396,106 @@ export default function App() {
       element.click();
       document.body.removeChild(element);
   };
+  
+  // NAVIGATION LOGIC
+  const selectFlawByIndex = (index: number) => {
+      if (!xmlResult) return;
+      
+      const regex = /<FLAW[^>]*>.*?<\/FLAW>/g;
+      let match;
+      let i = 0;
+      
+      while ((match = regex.exec(xmlResult)) !== null) {
+          if (i === index) {
+              const fullTag = match[0];
+              const typeMatch = fullTag.match(/type="([^"]*)"/);
+              const suggestionMatch = fullTag.match(/suggestion="([^"]*)"/);
+              const reasonMatch = fullTag.match(/reason="([^"]*)"/);
+              const contentMatch = fullTag.match(/>(.*?)<\/FLAW>/);
+              
+              const type = typeMatch ? typeMatch[1] : 'unknown';
+              const suggestion = suggestionMatch ? suggestionMatch[1] : '';
+              const reason = reasonMatch ? reasonMatch[1] : '';
+              const content = contentMatch ? contentMatch[1] : '';
+              const id = `flaw-${index}`; // Note: index changes if we modify text, but for view mode it's ok-ish
+              
+              setSelectedFlaw({
+                  id,
+                  original: content,
+                  suggestion,
+                  type,
+                  reason,
+                  fullTag,
+                  index
+              });
+              setCurrentFlawIndex(index);
+              
+              // Scroll to element
+              const el = document.getElementById(id); // We need to set ID in render
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              return;
+          }
+          i++;
+      }
+  };
+  
+  const handleNextFlaw = () => {
+      if (totalFlaws === 0) return;
+      const nextIndex = (currentFlawIndex + 1) % totalFlaws;
+      selectFlawByIndex(nextIndex);
+  };
+  
+  const handlePrevFlaw = () => {
+      if (totalFlaws === 0) return;
+      const prevIndex = (currentFlawIndex - 1 + totalFlaws) % totalFlaws;
+      selectFlawByIndex(prevIndex);
+  };
+  
+  // ACTION LOGIC
+  const handleAcceptFlaw = () => {
+      if (!selectedFlaw || !xmlResult || !selectedFlaw.fullTag) return;
+      
+      // Replace the full tag with the suggestion
+      const newXml = xmlResult.replace(selectedFlaw.fullTag, selectedFlaw.suggestion);
+      setXmlResult(newXml);
+      
+      // Auto advance after short delay (state needs to update first)
+      setTimeout(() => {
+         // Logic to stay near current index or move next
+         // Since we removed one, current index now points to the next one
+         // unless we were at the end
+         if (totalFlaws > 1) {
+             const nextIdx = currentFlawIndex >= totalFlaws - 1 ? 0 : currentFlawIndex;
+             // We need to re-find because content changed. 
+             // Actually, the useEffect will trigger count update.
+             // But we need to manually trigger selection of the "new" flaw at this index
+             // This is tricky in async React. 
+             // Simplified: Reset selection, user clicks next. Or try to auto-select.
+             setSelectedFlaw(null); // Clear for now
+         } else {
+             setSelectedFlaw(null);
+         }
+      }, 100);
+  };
+  
+  const handleRejectFlaw = () => {
+      if (!selectedFlaw || !xmlResult || !selectedFlaw.fullTag) return;
+      
+      // Replace the full tag with the ORIGINAL content (remove tag)
+      const newXml = xmlResult.replace(selectedFlaw.fullTag, selectedFlaw.original);
+      setXmlResult(newXml);
+      
+       setTimeout(() => {
+         if (totalFlaws > 1) {
+             setSelectedFlaw(null); 
+         } else {
+             setSelectedFlaw(null);
+         }
+      }, 100);
+  };
 
   const executeMasterProcess = async () => {
+     // ... (Existing implementation preserved)
      const session = sessions.find(s => s.id === selectedSessionId);
      if (isProcessing) return;
      setIsProcessing(true);
@@ -387,7 +549,6 @@ export default function App() {
       </div>
   );
   
-  // Updated Mapping for Spanish-friendly labels including new "Trash" and "Coherence"
   const getLabelForType = (type: string) => {
       if (type.includes('basura')) return { label: 'Basura Editorial / Typo', color: 'bg-slate-200 text-slate-600' };
       if (type.includes('coherencia')) return { label: 'Duda Semántica (¿Audio?)', color: 'bg-orange-100 text-orange-700' };
@@ -460,6 +621,7 @@ export default function App() {
                    {/* Editor Area */}
                    <div className="flex-1 min-h-[500px] flex gap-6 overflow-hidden">
                        <div className="flex-1 bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden border border-slate-200">
+                           {/* HEADER WITH NAVIGATOR */}
                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                                <div className="flex items-center gap-4">
                                    <div className="flex bg-slate-200 rounded-lg p-1">
@@ -467,33 +629,52 @@ export default function App() {
                                            onClick={() => setViewMode('visual')}
                                            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'visual' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
                                        >
-                                           <Eye size={14} /> Vista Asistida
+                                           <Eye size={14} /> Vista
                                        </button>
                                        <button 
                                            onClick={() => setViewMode('code')}
                                            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'code' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
                                        >
-                                           <Code size={14} /> Vista Código
+                                           <Code size={14} /> Código
                                        </button>
                                    </div>
+                                   
+                                   {/* CAMBIOS NAVIGATOR */}
+                                   {totalFlaws > 0 && viewMode === 'visual' && (
+                                       <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1 px-2 ml-4 shadow-sm">
+                                           <span className="text-xs font-bold text-slate-500 mr-2 uppercase tracking-wide">Navegador de Cambios</span>
+                                           <button onClick={handlePrevFlaw} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronLeft size={16}/></button>
+                                           <span className="text-xs font-mono text-slate-700 w-12 text-center">
+                                               {currentFlawIndex !== -1 ? currentFlawIndex + 1 : '-'} / {totalFlaws}
+                                           </span>
+                                           <button onClick={handleNextFlaw} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronRight size={16}/></button>
+                                       </div>
+                                   )}
+
                                    {isValidating && (
                                        <span className="text-xs text-purple-600 flex items-center gap-2 animate-pulse">
                                            <Loader2 size={12} className="animate-spin" />
-                                           Procesando bloque {auditProgress.current}...
+                                           Procesando...
                                        </span>
                                    )}
                                </div>
                                <div className="flex gap-2">
                                   {xmlResult && (
-                                      <button onClick={handleDownloadCleanVersion} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all">
-                                          <CheckCircle2 size={16} />
-                                          DESCARGAR BORRADOR PARA EDICIÓN
+                                    <>
+                                      <button onClick={handleDownloadReviewDoc} className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all" title="Descargar documento con cambios visibles para Word">
+                                          <FileEdit size={16} />
+                                          EXPORTAR REVISIÓN (DOC)
                                       </button>
+                                      <button onClick={handleDownloadCleanVersion} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all" title="Descargar texto limpio aceptando todas las sugerencias">
+                                          <CheckCircle2 size={16} />
+                                          LIMPIO
+                                      </button>
+                                    </>
                                   )}
                                </div>
                            </div>
 
-                           <div className="flex-1 overflow-auto p-8 custom-scrollbar">
+                           <div className="flex-1 overflow-auto p-8 custom-scrollbar relative">
                                {xmlResult ? (
                                    viewMode === 'code' ? (
                                        <pre className="font-mono text-xs text-slate-600 whitespace-pre-wrap">{xmlResult}</pre>
@@ -501,16 +682,25 @@ export default function App() {
                                        <div className="prose max-w-none text-slate-700 leading-relaxed font-serif text-lg">
                                            {xmlResult.split(/(<FLAW[^>]*>.*?<\/FLAW>)/g).map((part, index) => {
                                                if (part.startsWith('<FLAW')) {
+                                                   const fullTag = part;
                                                    const typeMatch = part.match(/type="([^"]*)"/);
                                                    const suggestionMatch = part.match(/suggestion="([^"]*)"/);
-                                                   const reasonMatch = part.match(/reason="([^"]*)"/); // Capturamos reason si existe
+                                                   const reasonMatch = part.match(/reason="([^"]*)"/); 
                                                    const contentMatch = part.match(/>(.*?)<\/FLAW>/);
                                                    
                                                    const type = typeMatch ? typeMatch[1] : 'unknown';
                                                    const suggestion = suggestionMatch ? suggestionMatch[1] : '';
                                                    const reason = reasonMatch ? reasonMatch[1] : '';
                                                    const content = contentMatch ? contentMatch[1] : '';
-                                                   const id = `flaw-${index}`;
+                                                   
+                                                   // We calculate a pseudo-index based on rendering order
+                                                   // This is slightly flaky if map doesn't run sequentially but usually fine
+                                                   // Better approach: count flaws in map logic or regex before render
+                                                   // For UI purposes, we just need a unique ID for scroll
+                                                   
+                                                   // Lets find the 'nth' flaw this is
+                                                   const flawIndex = xmlResult.substring(0, xmlResult.indexOf(part)).match(/<FLAW/g)?.length || 0;
+                                                   const id = `flaw-${flawIndex}`;
 
                                                    let highlightClass = 'bg-slate-200 decoration-slate-400';
                                                    if (type.includes('estilo') || type.includes('style')) highlightClass = 'bg-yellow-100 decoration-yellow-400 text-yellow-900';
@@ -519,7 +709,6 @@ export default function App() {
                                                    if (type.includes('formato')) highlightClass = 'bg-blue-100 decoration-blue-400 text-blue-900';
                                                    if (type.includes('entidad')) highlightClass = 'bg-purple-100 decoration-purple-400 text-purple-900';
                                                    
-                                                   // New Styles
                                                    if (type.includes('basura')) highlightClass = 'bg-slate-300 decoration-slate-500 text-slate-500 line-through opacity-60';
                                                    if (type.includes('coherencia')) highlightClass = 'bg-orange-100 decoration-orange-400 text-orange-900 border-orange-200';
 
@@ -527,9 +716,13 @@ export default function App() {
 
                                                    return (
                                                        <span 
+                                                           id={id}
                                                            key={index} 
-                                                           onClick={() => setSelectedFlaw({ id, original: content, suggestion, type, reason })}
-                                                           className={`cursor-pointer px-1 rounded mx-0.5 border-b-2 transition-all ${highlightClass} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''} border-dashed`}
+                                                           onClick={() => {
+                                                               setSelectedFlaw({ id, original: content, suggestion, type, reason, fullTag, index: flawIndex });
+                                                               setCurrentFlawIndex(flawIndex);
+                                                           }}
+                                                           className={`cursor-pointer px-1 rounded mx-0.5 border-b-2 transition-all ${highlightClass} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1 scale-105 shadow-md' : ''} border-dashed inline-block`}
                                                            title="Clic para revisar"
                                                        >
                                                            {content}
@@ -561,9 +754,12 @@ export default function App() {
                                {selectedFlaw ? (
                                    <div className="space-y-6 animate-pulse-glow" style={{ animationDuration: '0.3s' }}>
                                        <div>
-                                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${getLabelForType(selectedFlaw.type).color}`}>
-                                               {getLabelForType(selectedFlaw.type).label}
-                                           </span>
+                                           <div className="flex justify-between items-center">
+                                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${getLabelForType(selectedFlaw.type).color}`}>
+                                                    {getLabelForType(selectedFlaw.type).label}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-mono">#{currentFlawIndex + 1}</span>
+                                           </div>
                                            <h3 className="text-lg font-bold text-slate-800 mt-3 mb-1 leading-tight">Observación del Asistente</h3>
                                        </div>
 
@@ -573,23 +769,7 @@ export default function App() {
                                        </div>
 
                                        <div className="flex justify-center">
-                                           {selectedFlaw.type.includes('entidad') ? (
-                                               <div className="bg-purple-100 rounded-full p-2 text-purple-600 animate-bounce">
-                                                    <Search size={20} />
-                                               </div>
-                                           ) : selectedFlaw.type.includes('basura') ? (
-                                                <div className="bg-slate-100 rounded-full p-2 text-slate-400">
-                                                    <Trash2 size={20} />
-                                                </div>
-                                           ) : selectedFlaw.type.includes('coherencia') ? (
-                                                <div className="bg-orange-100 rounded-full p-2 text-orange-600">
-                                                    <Ear size={20} />
-                                                </div>
-                                           ) : (
-                                               <div className="bg-slate-100 rounded-full p-2 text-slate-400">
-                                                    <PenTool size={20} />
-                                               </div>
-                                           )}
+                                            <ArrowRight className="text-slate-300 transform rotate-90 md:rotate-0" />
                                        </div>
 
                                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm">
@@ -603,7 +783,7 @@ export default function App() {
                                             </div>
                                        )}
 
-                                       {(selectedFlaw.type.includes('entidad') || selectedFlaw.type.includes('coherencia')) && activeSession?.youtubeUrl ? (
+                                       {(selectedFlaw.type.includes('entidad') || selectedFlaw.type.includes('coherencia')) && activeSession?.youtubeUrl && (
                                             <a 
                                                 href={activeSession.youtubeUrl} 
                                                 target="_blank" 
@@ -613,22 +793,30 @@ export default function App() {
                                                 <Youtube size={18} />
                                                 Verificar Audio en YouTube
                                             </a>
-                                       ) : (
-                                            <button className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-all">
-                                                <Check size={18} />
-                                                Aceptar Cambio
-                                            </button>
                                        )}
                                        
-                                       <p className="text-center text-xs text-slate-400 mt-2">
-                                           Este es un visor previo. Use el botón superior "Descargar Borrador" para obtener el texto corregido.
-                                       </p>
+                                       <div className="grid grid-cols-2 gap-2 mt-4">
+                                            <button 
+                                                onClick={handleRejectFlaw}
+                                                className="py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                                            >
+                                                <X size={18} />
+                                                Rechazar
+                                            </button>
+                                            <button 
+                                                onClick={handleAcceptFlaw}
+                                                className="py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-all"
+                                            >
+                                                <Check size={18} />
+                                                Aceptar
+                                            </button>
+                                       </div>
                                    </div>
                                ) : (
                                    <div className="text-center text-slate-400 mt-20">
                                        <AlertTriangle size={48} className="mx-auto mb-4 opacity-20" />
                                        <p className="font-medium text-slate-600 mb-2">Selecciona un error</p>
-                                       <p className="text-sm">Haga clic en el texto subrayado en el panel izquierdo para ver la explicación en español y la corrección.</p>
+                                       <p className="text-sm">Utiliza el navegador superior o haz clic en los textos subrayados.</p>
                                    </div>
                                )}
                            </div>
