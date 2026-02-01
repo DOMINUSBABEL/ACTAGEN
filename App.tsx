@@ -28,7 +28,8 @@ import {
   ArrowRight,
   Sparkles,
   FileDown,
-  Menu
+  Menu,
+  MoreHorizontal
 } from 'lucide-react';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
@@ -116,7 +117,7 @@ export default function App() {
   const [validatorParts, setValidatorParts] = useState<any[]>([]); 
   const [xmlResult, setXmlResult] = useState<string>('');
   const [isValidating, setIsValidating] = useState(false);
-  const [auditProgress, setAuditProgress] = useState<{current: number, total: number, status: string}>({ current: 0, total: 0, status: 'Iniciando...' });
+  const [auditProgress, setAuditProgress] = useState<{current: number, total: number, status: string}>({ current: 0, total: 0, status: 'Esperando inicio...' });
   const [selectedFlaw, setSelectedFlaw] = useState<FlawDetail | null>(null);
   
   // UI State
@@ -161,25 +162,27 @@ export default function App() {
   const handleDownload = (format: 'doc' | 'docx') => {
       if (!xmlResult) return;
       
-      // Clean up the text by applying suggestions
+      // Clean up the text by applying suggestions logic
+      // This applies the suggestion if available, essentially accepting the change for the export
       let cleanText = xmlResult.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>.*?<\/FLAW>/g, '$1');
-      // Remove any remaining tags if suggestions were empty (delete)
+      // If there are tags without suggestion or if regex missed, clean raw tags
       cleanText = cleanText.replace(/<FLAW[^>]*>.*?<\/FLAW>/g, '');
+      // Fallback for any other tags
+      cleanText = cleanText.replace(/<\/?[^>]+(>|$)/g, "");
       
-      // Wrap in basic HTML for Word compatibility (better than plain text)
-      // This works for both .doc and .docx (Word opens .docx html files with a warning, .doc without warning)
+      // Wrap in basic HTML for Word compatibility
       const htmlContent = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head>
             <meta charset='utf-8'>
             <title>Acta Exportada</title>
             <style>
-                body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; }
+                body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; color: #000; }
                 p { margin-bottom: 1em; }
             </style>
         </head>
         <body>
-        ${cleanText.replace(/\n/g, '<br/>')}
+        ${cleanText.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
         </body></html>
       `;
       
@@ -196,9 +199,12 @@ export default function App() {
 
   const handleCopyToClipboard = () => {
       if (!xmlResult) return;
-      const cleanText = xmlResult.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>.*?<\/FLAW>/g, '$1');
+      // Primitive cleaning logic
+      let cleanText = xmlResult.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>.*?<\/FLAW>/g, '$1');
+      cleanText = cleanText.replace(/<FLAW[^>]*>.*?<\/FLAW>/g, '');
+      
       navigator.clipboard.writeText(cleanText).then(() => {
-          alert("Texto copiado al portapapeles. Listo para pegar en Word.");
+          alert("Texto limpio copiado al portapapeles. Listo para pegar en Word.");
       });
   };
 
@@ -292,8 +298,8 @@ export default function App() {
                 <div className="flex gap-2">
                     <button 
                         onClick={() => setZenMode(true)}
-                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg flex items-center gap-2 text-xs font-bold"
-                        title="Modo Zen (Pantalla Completa)"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg flex items-center gap-2 text-xs font-bold transition-all"
+                        title="Activar Modo Zen (Pantalla Completa)"
                     >
                         <Maximize2 size={16} /> MODO ZEN
                     </button>
@@ -353,17 +359,17 @@ export default function App() {
                            <div className="flex items-center gap-3">
                                <button 
                                     onClick={() => setZenMode(false)}
-                                    className="p-1.5 text-slate-500 hover:bg-slate-200 rounded-lg mr-2"
+                                    className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg mr-2"
                                     title="Salir de Modo Zen"
                                 >
                                     <Minimize2 size={18} />
                                 </button>
                                <div className="p-1.5 bg-purple-100 text-purple-700 rounded-lg"><Zap size={16} /></div>
-                               <span className="font-bold text-slate-700 text-sm">Modo Zen: Edición Asistida</span>
+                               <span className="font-bold text-slate-700 text-sm hidden md:inline">Modo Zen: Edición Asistida</span>
                            </div>
                            <div className="flex gap-2 relative">
                                 <button onClick={handleCopyToClipboard} className="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 flex items-center gap-2 shadow-sm">
-                                    <Copy size={14} /> COPIAR TEXTO
+                                    <Copy size={14} /> COPIAR
                                 </button>
                                 
                                 <div className="relative">
@@ -375,14 +381,15 @@ export default function App() {
                                     </button>
                                     
                                     {showExportMenu && (
-                                        <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
                                             <button onClick={() => handleDownload('doc')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-medium text-slate-700 flex items-center gap-2">
-                                                <FileText size={14} className="text-blue-600" />
-                                                Formato Word (.doc)
+                                                <FileText size={16} className="text-blue-600" />
+                                                <span>Formato Word (.doc)</span>
+                                                <span className="text-[9px] bg-green-100 text-green-700 px-1 rounded ml-auto">Recomendado</span>
                                             </button>
                                             <button onClick={() => handleDownload('docx')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-medium text-slate-700 flex items-center gap-2 border-t border-slate-100">
-                                                <FileText size={14} className="text-blue-600" />
-                                                Formato Word (.docx)
+                                                <FileText size={16} className="text-blue-600" />
+                                                <span>Formato Word (.docx)</span>
                                             </button>
                                         </div>
                                     )}
@@ -399,7 +406,7 @@ export default function App() {
                     <div className={`flex-1 bg-white flex flex-col overflow-hidden transition-all ${zenMode ? '' : 'rounded-3xl border border-slate-200 shadow-xl'}`}>
                         {/* Editor Toolbar inside Pane (only visible in standard mode or if needed) */}
                         <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 flex-1">
                                 <div className="flex bg-slate-200 rounded-lg p-1">
                                     <button 
                                         onClick={() => setViewMode('visual')}
@@ -415,12 +422,12 @@ export default function App() {
                                     </button>
                                 </div>
                                 {isValidating && (
-                                    <div className="flex items-center gap-3 animate-pulse">
+                                    <div className="flex flex-1 items-center gap-3 animate-pulse px-4 border-l border-slate-200 ml-4">
                                         <Loader2 size={14} className="text-purple-600 animate-spin" />
-                                        <span className="text-xs font-bold text-purple-700">{auditProgress.status}</span>
-                                        <div className="w-24 h-1.5 bg-purple-100 rounded-full overflow-hidden">
+                                        <span className="text-xs font-bold text-purple-700 whitespace-nowrap">{auditProgress.status}</span>
+                                        <div className="flex-1 h-1.5 bg-purple-100 rounded-full overflow-hidden max-w-[200px]">
                                             <div 
-                                                className="h-full bg-purple-500 transition-all duration-500" 
+                                                className="h-full bg-purple-500 transition-all duration-500 ease-out" 
                                                 style={{ width: `${(auditProgress.current / (auditProgress.total || 1)) * 100}%` }}
                                             ></div>
                                         </div>
@@ -434,18 +441,18 @@ export default function App() {
                                             <Copy size={18} />
                                         </button>
                                         <div className="relative">
-                                            <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2">
-                                                <Download size={16} /> Exportar
+                                            <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2">
+                                                <Download size={16} /> EXPORTAR
                                             </button>
                                             {showExportMenu && (
-                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                                                <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
                                                     <button onClick={() => handleDownload('doc')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-medium text-slate-700 flex items-center gap-2">
-                                                        <FileText size={14} className="text-blue-600" />
-                                                        Formato Word (.doc)
+                                                        <FileText size={16} className="text-blue-600" />
+                                                        <span>Formato Word (.doc)</span>
                                                     </button>
                                                     <button onClick={() => handleDownload('docx')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-medium text-slate-700 flex items-center gap-2 border-t border-slate-100">
-                                                        <FileText size={14} className="text-blue-600" />
-                                                        Formato Word (.docx)
+                                                        <FileText size={16} className="text-blue-600" />
+                                                        <span>Formato Word (.docx)</span>
                                                     </button>
                                                 </div>
                                             )}
