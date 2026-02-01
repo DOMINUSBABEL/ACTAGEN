@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { UploadCloud, File as FileIcon, X, CheckCircle, Loader2, FileAudio, FileText, FileSpreadsheet, Presentation } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, CheckCircle, Loader2, FileAudio, FileText, FileSpreadsheet, Presentation, RefreshCw } from 'lucide-react';
 
 interface FileUploaderProps {
   onFilesSelected: (files: File[]) => void;
@@ -15,7 +15,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   accept, 
   multiple = false, 
   label = "Haga clic para subir archivos", 
-  subLabel = "Soporta MP3, DOCX, PDF, TXT, XLSX, PPTX",
+  subLabel = "Soporta MP3, DOCX, PDF, TXT",
   icon: Icon = UploadCloud
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -40,15 +40,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     setFileName(files.length === 1 ? files[0].name : `${files.length} archivos seleccionados`);
 
     // Simulación de carga basada en el tamaño total para UX
-    // En una app real, esto estaría atado al FileReader o XHR
     const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-    const simulationDuration = Math.min(Math.max(totalSize / 100000, 800), 3000); // Min 800ms, Max 3s
+    const simulationDuration = Math.min(Math.max(totalSize / 100000, 800), 2000); 
     
     let currentProgress = 0;
     const interval = setInterval(() => {
-      currentProgress += 5;
-      // Curva de progreso logarítmica para realismo
-      const increment = Math.max(1, (100 - currentProgress) / 10);
+      currentProgress += 10;
+      const increment = Math.max(1, (100 - currentProgress) / 5);
       setUploadProgress(prev => Math.min(prev + increment, 99));
 
       if (currentProgress >= 100) {
@@ -57,9 +55,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         setTimeout(() => {
           setIsUploading(false);
           onFilesSelected(files);
-        }, 400);
+        }, 300);
       }
-    }, simulationDuration / 20);
+    }, simulationDuration / 10);
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -86,16 +84,16 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     }
   };
 
-  const CurrentIcon = fileName ? getFileIcon(fileName) : Icon;
+  const CurrentIcon = fileName ? CheckCircle : Icon;
 
   return (
     <div className="w-full">
       <div 
-        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer group overflow-hidden ${
+        className={`relative border-2 border-dashed rounded-xl transition-all cursor-pointer group overflow-hidden ${
           isDragging 
-            ? 'border-blue-500 bg-blue-50' 
+            ? 'border-blue-500 bg-blue-50 scale-[1.02]' 
             : 'border-slate-200 hover:bg-slate-50 hover:border-blue-300'
-        }`}
+        } ${fileName ? 'py-4' : 'py-8'}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -112,32 +110,42 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         />
 
         {isUploading ? (
-          <div className="flex flex-col items-center justify-center py-2">
-            <div className="w-full max-w-[200px] bg-slate-100 rounded-full h-2.5 mb-3 overflow-hidden">
+          <div className="flex flex-col items-center justify-center py-2 px-6">
+            <div className="flex items-center gap-3 text-sm font-bold text-blue-600 mb-2">
+               <Loader2 size={18} className="animate-spin" />
+               <span>Procesando archivos...</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-200 ease-out" 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-blue-600 animate-pulse">
-               <Loader2 size={14} className="animate-spin" />
-               <span>Subiendo... {Math.round(uploadProgress)}%</span>
-            </div>
           </div>
         ) : (
-          <>
-            <CurrentIcon 
-              className={`mx-auto mb-3 transition-transform duration-300 ${isDragging ? 'scale-110 text-blue-600' : 'text-blue-500 group-hover:scale-110'}`} 
-              size={32} 
-            />
-            
-            <p className="text-sm font-bold text-slate-700 mb-1">
-              {label}
-            </p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide">
-              {subLabel}
-            </p>
-          </>
+          <div className="flex flex-col items-center text-center px-4">
+            {fileName ? (
+                <div className="flex items-center gap-3 text-green-600">
+                    <CheckCircle size={28} />
+                    <div className="text-left">
+                        <p className="text-sm font-bold text-slate-800">{fileName}</p>
+                        <p className="text-xs text-slate-500">Clic para cambiar</p>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className={`p-3 rounded-full bg-blue-50 text-blue-600 mb-3 group-hover:scale-110 transition-transform`}>
+                        <CurrentIcon size={24} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-700 mb-1">
+                    {label}
+                    </p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+                    {subLabel}
+                    </p>
+                </>
+            )}
+          </div>
         )}
       </div>
     </div>
