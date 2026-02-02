@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { 
+  Document, 
+  Packer, 
+  Paragraph, 
+  TextRun, 
+  AlignmentType, 
+  Header, 
+  Footer, 
+  PageNumber,
+  WidthType
+} from "docx";
+import { 
   LayoutDashboard, 
   Bot,
   Loader2,
@@ -69,15 +80,6 @@ const INITIAL_SESSIONS: SessionData[] = [
   }
 ];
 
-interface NewSessionState {
-  name: string;
-  sourceType: 'youtube' | 'audio';
-  youtubeUrl: string;
-  sourceAudio: File | null;
-  transcriptFiles: File[];
-  actaType: 'Literal' | 'Sucinta';
-}
-
 interface FlawDetail {
     original: string;
     suggestion: string;
@@ -126,8 +128,6 @@ export default function App() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(true); // New: Collapse assistant
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     geminiService.initChat();
   }, []);
@@ -158,51 +158,206 @@ export default function App() {
       setIsValidating(false);
     }
   };
-  
-  const handleDownload = (format: 'doc' | 'docx') => {
-      if (!xmlResult) return;
-      
+
+  const getCleanText = () => {
+      if (!xmlResult) return "";
       // Clean up the text by applying suggestions logic
-      // This applies the suggestion if available, essentially accepting the change for the export
       let cleanText = xmlResult.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>.*?<\/FLAW>/g, '$1');
-      // If there are tags without suggestion or if regex missed, clean raw tags
+      // Remove any remaining tags
       cleanText = cleanText.replace(/<FLAW[^>]*>.*?<\/FLAW>/g, '');
       // Fallback for any other tags
       cleanText = cleanText.replace(/<\/?[^>]+(>|$)/g, "");
+      return cleanText;
+  };
+
+  const generateDocxBlob = async (cleanText: string): Promise<Blob> => {
+    const lines = cleanText.split('\n');
+    const children: any[] = [];
+
+    // Styles constants based on Gold Standard
+    const STYLES = {
+        font: "Arial",
+        sizeBody: 24, // 12pt
+        sizeCitation: 22, // 11pt
+        sizeHeader: 20, // 10pt
+        margins: {
+            top: 1440, 
+            bottom: 1440,
+            left: 1700, 
+            right: 1440,
+        }
+    };
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        // Logic from user script
+        if (trimmed.startsWith("FECHA:") || trimmed.startsWith("HORA:") || trimmed.startsWith("LUGAR:")) {
+            const parts = trimmed.split(":");
+            const label = parts[0];
+            const rest = parts.slice(1).join(":");
+            children.push(new Paragraph({
+                children: [
+                    new TextRun({ text: label + ": ", bold: true, size: STYLES.sizeBody, font: STYLES.font }),
+                    new TextRun({ text: rest.trim(), size: STYLES.sizeBody, font: STYLES.font })
+                ],
+                spacing: { after: 100 }
+            }));
+        } 
+        else if (trimmed.startsWith("Intervino")) {
+             children.push(new Paragraph({
+                children: [new TextRun({
+                    text: trimmed,
+                    size: STYLES.sizeBody,
+                    bold: true,
+                    font: STYLES.font
+                })],
+                spacing: { before: 400, after: 200, line: 360 },
+                alignment: AlignmentType.JUSTIFIED
+             }));
+        }
+        else if (trimmed.startsWith("“") || trimmed.startsWith("\"")) {
+             children.push(new Paragraph({
+                children: [new TextRun({
+                    text: trimmed,
+                    size: STYLES.sizeCitation,
+                    font: STYLES.font
+                })],
+                spacing: { before: 0, after: 200, line: 360 },
+                indent: { left: 720 },
+                alignment: AlignmentType.JUSTIFIED
+             }));
+        }
+        else if (trimmed === trimmed.toUpperCase() && trimmed.length > 5) {
+             children.push(new Paragraph({
+                children: [new TextRun({
+                    text: trimmed,
+                    size: STYLES.sizeBody,
+                    bold: true,
+                    font: STYLES.font
+                })],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 400, after: 200, line: 360 }
+             }));
+        }
+        else {
+             children.push(new Paragraph({
+                children: [new TextRun({
+                    text: trimmed,
+                    size: STYLES.sizeBody,
+                    font: STYLES.font
+                })],
+                alignment: AlignmentType.JUSTIFIED,
+                spacing: { before: 0, after: 200, line: 360 }
+             }));
+        }
+    });
+
+    const doc = new Document({
+        styles: {
+            default: {
+                document: {
+                    run: {
+                        font: STYLES.font,
+                        size: STYLES.sizeBody,
+                    },
+                },
+            },
+        },
+        sections: [{
+            properties: {
+                page: {
+                    margin: STYLES.margins,
+                },
+            },
+            headers: {
+                default: new Header({
+                    children: [
+                        new Paragraph({
+                            children: [new TextRun({ text: "CONCEJO DE MEDELLÍN", bold: true, size: STYLES.sizeHeader })],
+                            alignment: AlignmentType.CENTER,
+                        }),
+                        new Paragraph({
+                            children: [new TextRun({ text: "RELATORÍA - SISTEMA SIMI", size: 16 })], // 8pt
+                            alignment: AlignmentType.CENTER,
+                        })
+                    ],
+                }),
+            },
+            footers: {
+                default: new Footer({
+                    children: [
+                        new Paragraph({
+                            children: [
+                                new TextRun("Página "),
+                                new TextRun({
+                                    children: [PageNumber.CURRENT],
+                                }),
+                                new TextRun(" de "),
+                                new TextRun({
+                                    children: [PageNumber.TOTAL_PAGES],
+                                }),
+                            ],
+                            alignment: AlignmentType.RIGHT,
+                        }),
+                    ],
+                }),
+            },
+            children: children,
+        }],
+    });
+
+    return await Packer.toBlob(doc);
+  };
+  
+  const handleDownload = async (format: 'doc' | 'docx') => {
+      if (!xmlResult) return;
+      const cleanText = getCleanText();
       
-      // Wrap in basic HTML for Word compatibility
-      const htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-            <meta charset='utf-8'>
-            <title>Acta Exportada</title>
-            <style>
-                body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; color: #000; }
-                p { margin-bottom: 1em; }
-            </style>
-        </head>
-        <body>
-        ${cleanText.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
-        </body></html>
-      `;
-      
-      const blob = new Blob([htmlContent], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `BORRADOR_ACTA_${new Date().getTime()}.${format}`; 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (format === 'doc') {
+        // Wrap in basic HTML for Word compatibility (.doc legacy)
+        const htmlContent = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset='utf-8'>
+                <title>Acta Exportada</title>
+                <style>
+                    body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; color: #000; }
+                    p { margin-bottom: 1em; }
+                </style>
+            </head>
+            <body>
+            ${cleanText.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
+            </body></html>
+        `;
+        const blob = new Blob([htmlContent], { type: 'application/msword' });
+        triggerDownload(blob, 'doc');
+      } else {
+        // Native DOCX generation
+        try {
+            const blob = await generateDocxBlob(cleanText);
+            triggerDownload(blob, 'docx');
+        } catch (error) {
+            console.error("DOCX Generation failed:", error);
+            alert("Error generando DOCX. Intente con formato .doc");
+        }
+      }
       setShowExportMenu(false);
   };
 
+  const triggerDownload = (blob: Blob, ext: string) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `BORRADOR_ACTA_${new Date().getTime()}.${ext}`; 
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   const handleCopyToClipboard = () => {
-      if (!xmlResult) return;
-      // Primitive cleaning logic
-      let cleanText = xmlResult.replace(/<FLAW[^>]*suggestion="([^"]*)"[^>]*>.*?<\/FLAW>/g, '$1');
-      cleanText = cleanText.replace(/<FLAW[^>]*>.*?<\/FLAW>/g, '');
-      
+      const cleanText = getCleanText();
       navigator.clipboard.writeText(cleanText).then(() => {
           alert("Texto limpio copiado al portapapeles. Listo para pegar en Word.");
       });

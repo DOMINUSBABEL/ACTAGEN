@@ -1,67 +1,69 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 
-// Definimos la instrucción del sistema con esteroides para evitar resúmenes.
+// Definimos la instrucción del sistema basada en el "Estándar Oro" (Acta 349) y observaciones de Ruth Navarro.
 const SYSTEM_INSTRUCTION = `
-Eres "ActaGen", el Asistente Oficial de Relatoría del Concejo. TU OBJETIVO ES AYUDAR A LA DIGITADORA A CREAR UN BORRADOR PERFECTO.
-ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORMALIZADO".
+Eres "ActaGen", el Asistente Oficial de Relatoría del Concejo. TU OBJETIVO ES GENERAR UN ACTA CON ESTILO PARLAMENTARIO PERFECTO (BASADO EN ACTA 349).
 
-### REGLAS DE ESTILO V4_2026 (ACTUALIZADAS SEGÚN ACUERDO INTERNO):
+### REGLAS DE ORO DE REDACCIÓN Y FORMATO (ESTRICTO):
 
-1. **PUNTUACIÓN Y COMILLAS (CONVENCIÓN ACORDADA):**
-   - **PRINCIPALES:** Usa comillas ANGULARES O DE COCODRILO («...») para citas y diálogos.
-   - **PUNTUACIÓN:** El punto (.) va SIEMPRE INMEDIATAMENTE DESPUÉS de la comilla de cierre.
-   
-2. **MAYÚSCULAS Y MINÚSCULAS (USO INSTITUCIONAL):**
-   - **CARGOS (Minúscula):** inspectores, corregidores, secretario, alcalde, concejal, comisario.
-   - **ENTIDADES (Mayúscula):** Unidad de Reacción Inmediata, Concejo de Medellín, Secretaría de Hacienda, ICBF.
+1. **ESTRUCTURA DE INTERVENCIONES:**
+   - Formato: **Intervino [cargo/rol en minúscula] [Nombre en Mayúscula Inicial]:**
+   - Salto de línea doble.
+   - Texto del discurso entre **comillas inglesas (“...”)**.
+   - *Ejemplo:*
+     Intervino el concejal Brisvani Alexis Arenas Suaza:
+     “Muy buenas tardes para todos...”
 
-3. **CIFRAS Y VOTACIONES:**
-   - **VOTACIONES:** ÚNICO caso donde se usa número y letra. Ej: "5 (cinco) votos".
-   - **DINERO/OTROS:** Solo la cifra con puntos de mil. Ej: "$ 20.000.000".
+2. **USO DE COMILLAS (JERARQUÍA):**
+   - **Discurso/Voz:** Comillas inglesas altas (**“...”**).
+   - **Títulos/Obras/Lemas:** Comillas angulares o españolas (**«...»**).
+   - *Ejemplo:* Quiero empezar con el video «Camino al barrio».
 
-4. **IDENTIFICACIÓN DE ORADORES:**
-   - Siempre busca identificar la ENTIDAD. (Ej: "Líder del ICBF", no solo "Líder").
+3. **ACRÓNIMOS Y SIGLAS (Regla de Ruth):**
+   - **Hasta 4 letras:** MAYÚSCULA SOSTENIDA. (Ej: ICBF, DANE, APP, POT).
+   - **Más de 4 letras:** Tipo Título (Solo primera mayúscula). (Ej: Isvimed, Sivigila, Fonvalmed, Colpensiones).
 
-5. **LIMPIEZA EDITORIAL Y COHERENCIA (NUEVO):**
-   - **Basura:** Elimina residuos de edición (letras sueltas como "her", "k", "asdf" al inicio de párrafos).
-   - **Coherencia:** Si una palabra suena igual pero no tiene sentido en el contexto (Ej: "viven caminando" vs "vienen caminando"), sugiérelo.
+4. **CIFRAS Y MONEDA:**
+   - **Dinero:** Signo pesos + ESPACIO + Cifra con puntos. (Ej: **$ 20.000** / **$ 1.500.000**).
+   - **Hora:** Formato 24h. (Ej: 14:33 horas).
+
+5. **LENGUAJE PARLAMENTARIO:**
+   - Usar frases pasivas o impersonales para acciones de procedimiento.
+   - *Ejemplos:* "Se dio lectura a...", "Se sometió a consideración...", "Fue aprobado", "El presidente declaró abierta la sesión".
+
+6. **LIMPIEZA EDITORIAL:**
+   - **Párrafos:** Evitar "ladrillos" (textos infinitos). Dividir ideas en párrafos legibles.
+   - **Coherencia:** Corregir errores fonéticos obvios (Ej: "viven caminando" -> "vienen caminando").
+   - **Negrillas:** NO usar negrilla dentro del texto de las intervenciones.
 
 ### PROTOCOLO DE PROCESAMIENTO:
-- Si el audio es largo, procesa por fases sin resumir.
+Si recibes audio o video, transcríbelo siguiendo estas reglas. Si recibes texto, audítalo y reescríbelo aplicando este formato.
 `;
 
-// PROMPT DE AUDITORÍA: Configurado para explicar en ESPAÑOL CLARO a un funcionario no técnico.
+// PROMPT DE AUDITORÍA: Refinado para detectar desviaciones del Acta 349.
 const AUDIT_SYSTEM_INSTRUCTION = `
-ROL: ASISTENTE DE REVISIÓN Y CORRECCIÓN DE ESTILO.
-TAREA: Analizar el texto y sugerir correcciones basadas en el Manual V4.
+ROL: AUDITOR DE ESTILO LEGISLATIVO (CONTROL DE CALIDAD ACTA 349).
+TAREA: Detectar errores que violen el Manual de Estilo V5.
 
-### INSTRUCCIONES DE SALIDA (TEI/XML):
-Debes devolver el texto EXACTO original, pero envolviendo los errores en etiquetas <FLAW>.
+### REGLAS DE ETIQUETADO <FLAW>:
 
-Atributos requeridos:
-- **suggestion**: La corrección lista para aplicar.
-- **reason**: Una explicación AMABLE y CLARA en español.
-- **type**: Categoría (ortografia, estilo, formato, entidad_faltante, basura_editorial, coherencia).
+1. **Acrónimos Incorrectos (Type: estilo):**
+   - Si ves "ISVIMED" (incorrecto, >4 letras) -> Sugerir "Isvimed".
+   - Si ves "Icbf" (incorrecto, <=4 letras) -> Sugerir "ICBF".
 
-### REGLAS PARA DETECTAR Y ETIQUETAR:
+2. **Formato Moneda (Type: formato):**
+   - Si ves "$20.000" (sin espacio) -> Sugerir "$ 20.000".
 
-1. **Basura Editorial (RESIDUOS):**
-   - Busca fragmentos de texto aislados o sin sentido al inicio de líneas que parecen errores de dedo (Ej: "her", "a", "sdf").
-   - Tag: <FLAW type="basura_editorial" suggestion="" reason="Parece un residuo de edición o error de dedo. Eliminar.">texto_basura</FLAW>
+3. **Comillas (Type: estilo):**
+   - Si usan comillas inglesas (" ") para títulos de videos/documentos -> Sugerir angulares (« »).
 
-2. **Duda de Coherencia (SEMÁNTICA/FONÉTICA):**
-   - Si una frase es gramaticalmente correcta pero extraña en contexto, y suena parecido a otra palabra más lógica.
-   - Ej: "viven caminando" -> Contexto: migración. Probable: "vienen caminando".
-   - Tag: <FLAW type="coherencia" suggestion="¿vienen?" reason="Posible confusión fonética. ¿Dijo 'vienen' en lugar de 'viven'? Verificar en video.">viven</FLAW>
+4. **Coherencia Fonética (Type: coherencia):**
+   - Detectar palabras que suenan igual pero no tienen sentido (viven/vienen).
 
-3. **Falta de Entidad:**
-   - Nombres con cargo pero sin entidad (ICBF, Alcaldía).
-   - Tag: <FLAW type="entidad_faltante" ...>...</FLAW>
+5. **Basura Editorial (Type: basura_editorial):**
+   - Letras sueltas o residuos de OCR/Dictado.
 
-4. **Reglas Estándar:**
-   - Ortografía, Comillas Angulares (« »), Mayúsculas Institucionales.
-
-NO RESUMAS. DEVUELVE TODO EL TEXTO.
+DEVUELVE EL TEXTO ORIGINAL CON LAS ETIQUETAS XML INCRUSTADAS.
 `;
 
 export interface GeminiResponse {
@@ -90,7 +92,7 @@ class GeminiService {
         model: 'gemini-3-pro-preview',
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.3, 
+          temperature: 0.2, // Bajamos temperatura para mayor rigor formal
           maxOutputTokens: 8192,
         },
       });
@@ -210,12 +212,12 @@ class GeminiService {
         name: "FASE 1: ANÁLISIS ESTRUCTURAL E INSTALACIÓN",
         prompt: `[INICIO DEL PROCESO]
         He adjuntado el AUDIO COMPLETO de la sesión.
-        TU TAREA AHORA (PASO 1/5): Redacta UNICAMENTE el ENCABEZADO y LLAMADO A LISTA.`
+        TU TAREA AHORA (PASO 1/5): Redacta UNICAMENTE el ENCABEZADO y LLAMADO A LISTA siguiendo el formato del Acta 349.`
       },
-      { name: "FASE 2: INTERVENCIONES INICIALES", prompt: `CONTINUAMOS (PASO 2/5): Redacta intervenciones post-orden del día.` },
-      { name: "FASE 3: DEBATE CENTRAL (A)", prompt: `CONTINUAMOS (PASO 3/5): Primera mitad del debate central.` },
-      { name: "FASE 4: DEBATE CENTRAL (B)", prompt: `CONTINUAMOS (PASO 4/5): Segunda mitad y conclusiones.` },
-      { name: "FASE 5: CIERRE", prompt: `FINALIZAMOS (PASO 5/5): Proposiciones finales y cierre.` }
+      { name: "FASE 2: INTERVENCIONES INICIALES", prompt: `CONTINUAMOS (PASO 2/5): Redacta intervenciones post-orden del día. Recuerda: Isvimed (Título), ICBF (Mayúscula).` },
+      { name: "FASE 3: DEBATE CENTRAL (A)", prompt: `CONTINUAMOS (PASO 3/5): Primera mitad del debate central. Usa comillas inglesas (“”) para los discursos.` },
+      { name: "FASE 4: DEBATE CENTRAL (B)", prompt: `CONTINUAMOS (PASO 4/5): Segunda mitad y conclusiones. Cuida el formato de moneda ($ 20.000).` },
+      { name: "FASE 5: CIERRE", prompt: `FINALIZAMOS (PASO 5/5): Proposiciones finales y cierre con la fórmula: 'Agotado el orden del día...'` }
     ];
 
     try {
@@ -276,12 +278,13 @@ class GeminiService {
 ${chunk}
 :INPUT_DATA_END
 
-TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN.
+TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN (ESTILO ACTA 349).
 1. Copia el texto EXACTAMENTE igual (Verbatim).
-2. DETECTA BASURA: Si ves residuos como "her" o letras sueltas al inicio de párrafo, márcalo.
-3. DETECTA COHERENCIA: Si una frase suena rara (ej: "viven caminando" vs "vienen caminando"), márcalo para verificar en video.
-4. DETECTA ENTIDADES FALTANTES.
-5. NO RESUMAS.`;
+2. DETECTA ACRÓNIMOS: "ISVIMED" -> sugerir "Isvimed". "Icbf" -> sugerir "ICBF".
+3. DETECTA COMILLAS: Títulos con «...», Discurso con “...”.
+4. DETECTA MONEDA: "$20.000" -> sugerir "$ 20.000" (espacio).
+5. DETECTA COHERENCIA Y BASURA.
+6. NO RESUMAS.`;
 
              const response = await this.generateWithFallback(
                 {
@@ -308,7 +311,7 @@ TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN.
       const userMessage = {
         role: 'user',
         parts: [
-          { text: "INSTRUCCIÓN: Analiza este documento. Extrae el texto y aplica etiquetas <FLAW>." },
+          { text: "INSTRUCCIÓN: Analiza este documento. Extrae el texto y aplica etiquetas <FLAW> según Manual Acta 349." },
           ...contents
         ]
       };
