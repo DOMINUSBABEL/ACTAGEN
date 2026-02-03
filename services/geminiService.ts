@@ -1,54 +1,70 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { defenseService } from "./defenseService";
 
-// Definimos la instrucción del sistema con esteroides para evitar resúmenes.
+// Definimos la instrucción del sistema basada en el "Estándar Oro" (Acta 349) y observaciones de Ruth Navarro.
 const SYSTEM_INSTRUCTION = `
-Eres "ActaGen", el Relator Oficial del Concejo de Medellín. TU OBJETIVO ES LA PRECISIÓN Y LA EXTENSIÓN.
-ESTÁ ESTRICTAMENTE PROHIBIDO RESUMIR. DEBES GENERAR UN DOCUMENTO "VERBATIM FORMALIZADO".
+Eres "ActaGen", el Asistente Oficial de Relatoría del Concejo. TU OBJETIVO ES GENERAR UN ACTA CON ESTILO PARLAMENTARIO PERFECTO (BASADO EN ACTA 349).
 
-### REGLAS DE ESTILO V3_2026 (MANDATORIAS):
-1. **PUNTUACIÓN Y COMILLAS:**
-   - Usa comillas INGLESAS (“...”) como principales.
-   - Usa comillas ESPAÑOLAS («...») SOLO dentro de las inglesas.
-   - El punto (.) y la coma (,) van SIEMPRE DESPUÉS de las comillas de cierre. (Ej: “Terminó la sesión”.)
-2. **CIFRAS Y MONEDA:**
-   - Formato: $ 20.000.000.000 (Puntos de mil).
-   - Opcional: "$ 20.000 millones".
-3. **MAYÚSCULAS:**
-   - CARGOS: minúscula (secretario, alcalde, concejal).
-   - ENTIDADES: Mayúscula (Secretaría de Hacienda, Concejo de Medellín).
-   - Ej: "El secretario de Hacienda dijo..."
-4. **VOTACIONES:**
-   - Resultado en número y letra: "21 (veintiún) votos".
-   - NO contar ausentes en el total.
+### REGLAS DE ORO DE REDACCIÓN Y FORMATO (ESTRICTO):
+
+1. **ESTRUCTURA DE INTERVENCIONES:**
+   - Formato: **Intervino [cargo/rol en minúscula] [Nombre en Mayúscula Inicial]:**
+   - Salto de línea doble.
+   - Texto del discurso entre **comillas inglesas (“...”)**.
+   - *Ejemplo:*
+     Intervino el concejal Brisvani Alexis Arenas Suaza:
+     “Muy buenas tardes para todos...”
+
+2. **USO DE COMILLAS (JERARQUÍA):**
+   - **Discurso/Voz:** Comillas inglesas altas (**“...”**).
+   - **Títulos/Obras/Lemas:** Comillas angulares o españolas (**«...»**).
+   - *Ejemplo:* Quiero empezar con el video «Camino al barrio».
+
+3. **ACRÓNIMOS Y SIGLAS (Regla de Ruth):**
+   - **Hasta 4 letras:** MAYÚSCULA SOSTENIDA. (Ej: ICBF, DANE, APP, POT).
+   - **Más de 4 letras:** Tipo Título (Solo primera mayúscula). (Ej: Isvimed, Sivigila, Fonvalmed, Colpensiones).
+
+4. **CIFRAS Y MONEDA:**
+   - **Dinero:** Signo pesos + ESPACIO + Cifra con puntos. (Ej: **$ 20.000** / **$ 1.500.000**).
+   - **Hora:** Formato 24h. (Ej: 14:33 horas).
+
+5. **LENGUAJE PARLAMENTARIO:**
+   - Usar frases pasivas o impersonales para acciones de procedimiento.
+   - *Ejemplos:* "Se dio lectura a...", "Se sometió a consideración...", "Fue aprobado", "El presidente declaró abierta la sesión".
+
+6. **LIMPIEZA EDITORIAL:**
+   - **Párrafos:** Evitar "ladrillos" (textos infinitos). Dividir ideas en párrafos legibles.
+   - **Coherencia:** Corregir errores fonéticos obvios (Ej: "viven caminando" -> "vienen caminando").
+   - **Negrillas:** NO usar negrilla dentro del texto de las intervenciones.
 
 ### PROTOCOLO DE PROCESAMIENTO:
-- Si el audio es largo, procesa por fases sin resumir.
-- Usa tono solemne parlamentario.
-- Identifica voces con precisión.
+Si recibes audio o video, transcríbelo siguiendo estas reglas. Si recibes texto, audítalo y reescríbelo aplicando este formato.
 `;
 
-// PROMPT DE AUDITORÍA: Configurado como motor de regex semántico, no como chat.
+// PROMPT DE AUDITORÍA: Refinado para detectar desviaciones del Acta 349.
 const AUDIT_SYSTEM_INSTRUCTION = `
-ROLE: XML TEXT TAGGING ENGINE.
-TASK: Receive input text and return it EXACTLY verbatim, injecting <FLAW> tags for style violations.
+ROL: AUDITOR DE ESTILO LEGISLATIVO (CONTROL DE CALIDAD ACTA 349).
+TAREA: Detectar errores que violen el Manual de Estilo V5.
 
-### CRITICAL RULES (ZERO TOLERANCE FOR SUMMARIZATION):
-1. **FULL ECHO**: The text outside the tags MUST match the input character-for-character.
-2. **NO OMISSION**: Do not skip sentences, headers, or footers.
-3. **NO COMMENTS**: Do not output "Here is the text", "Processed:", or markdown code blocks. Just the raw XML-tagged text.
+### REGLAS DE ETIQUETADO <FLAW>:
 
-### STYLE RULES (MANUAL V3_2026):
-Tag errors using: <FLAW type="[type]" suggestion="[correction]">original_text</FLAW>
+1. **Acrónimos Incorrectos (Type: estilo):**
+   - Si ves "ISVIMED" (incorrecto, >4 letras) -> Sugerir "Isvimed".
+   - Si ves "Icbf" (incorrecto, <=4 letras) -> Sugerir "ICBF".
 
-1. **Hierarchy of Quotes**:
-   - Error: "Text" or 'Text'. -> Suggestion: “Text” (English quotes).
-   - Error: .”, -> Suggestion: ”., (Punctuation OUTSIDE).
-2. **Capitalization**:
-   - Error: "Secretario", "Alcalde" (Positions). -> Suggestion: "secretario", "alcalde".
-   - Error: "secretaría de hacienda" (Entities). -> Suggestion: "Secretaría de Hacienda".
-3. **Numbers**:
-   - Error: "20 mil". -> Suggestion: "$ 20.000".
+2. **Formato Moneda (Type: formato):**
+   - Si ves "$20.000" (sin espacio) -> Sugerir "$ 20.000".
+
+3. **Comillas (Type: estilo):**
+   - Si usan comillas inglesas (" ") para títulos de videos/documentos -> Sugerir angulares (« »).
+
+4. **Coherencia Fonética (Type: coherencia):**
+   - Detectar palabras que suenan igual pero no tienen sentido (viven/vienen).
+
+5. **Basura Editorial (Type: basura_editorial):**
+   - Letras sueltas o residuos de OCR/Dictado.
+
+DEVUELVE EL TEXTO ORIGINAL CON LAS ETIQUETAS XML INCRUSTADAS.
 `;
 
 export interface GeminiResponse {
@@ -77,7 +93,7 @@ class GeminiService {
         model: 'gemini-3-flash',
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.3, 
+          temperature: 0.2, // Bajamos temperatura para mayor rigor formal
           maxOutputTokens: 8192,
         },
       });
@@ -140,10 +156,6 @@ class GeminiService {
     }
   }
 
-  // CHUNK SIZE REDUCIDO A 4000 PARA GARANTIZAR SEGURIDAD TOTAL EN EL OUTPUT.
-  // 4000 chars ~= 1000 tokens de input.
-  // El modelo devuelve ~= 1000-1200 tokens de output (texto + tags).
-  // Límite del modelo es 8192. Estamos sobrados de margen, lo que evita cortes.
   private chunkText(text: string, chunkSize: number = 4000): string[] {
     const chunks: string[] = [];
     let currentIndex = 0;
@@ -152,7 +164,7 @@ class GeminiService {
       // Intentar cortar en un salto de línea para no romper frases
       if (end < text.length) {
         const nextNewLine = text.indexOf('\n', end);
-        if (nextNewLine !== -1 && nextNewLine - end < 500) { // Look ahead limit reduced
+        if (nextNewLine !== -1 && nextNewLine - end < 500) { 
             end = nextNewLine;
         } else {
              // Fallback: buscar espacio
@@ -219,12 +231,12 @@ class GeminiService {
         name: "FASE 1: ANÁLISIS ESTRUCTURAL E INSTALACIÓN",
         prompt: `[INICIO DEL PROCESO]
         He adjuntado el AUDIO COMPLETO de la sesión.
-        TU TAREA AHORA (PASO 1/5): Redacta UNICAMENTE el ENCABEZADO y LLAMADO A LISTA.`
+        TU TAREA AHORA (PASO 1/5): Redacta UNICAMENTE el ENCABEZADO y LLAMADO A LISTA siguiendo el formato del Acta 349.`
       },
-      { name: "FASE 2: INTERVENCIONES INICIALES", prompt: `CONTINUAMOS (PASO 2/5): Redacta intervenciones post-orden del día.` },
-      { name: "FASE 3: DEBATE CENTRAL (A)", prompt: `CONTINUAMOS (PASO 3/5): Primera mitad del debate central.` },
-      { name: "FASE 4: DEBATE CENTRAL (B)", prompt: `CONTINUAMOS (PASO 4/5): Segunda mitad y conclusiones.` },
-      { name: "FASE 5: CIERRE", prompt: `FINALIZAMOS (PASO 5/5): Proposiciones finales y cierre.` }
+      { name: "FASE 2: INTERVENCIONES INICIALES", prompt: `CONTINUAMOS (PASO 2/5): Redacta intervenciones post-orden del día. Recuerda: Isvimed (Título), ICBF (Mayúscula).` },
+      { name: "FASE 3: DEBATE CENTRAL (A)", prompt: `CONTINUAMOS (PASO 3/5): Primera mitad del debate central. Usa comillas inglesas (“”) para los discursos.` },
+      { name: "FASE 4: DEBATE CENTRAL (B)", prompt: `CONTINUAMOS (PASO 4/5): Segunda mitad y conclusiones. Cuida el formato de moneda ($ 20.000).` },
+      { name: "FASE 5: CIERRE", prompt: `FINALIZAMOS (PASO 5/5): Proposiciones finales y cierre con la fórmula: 'Agotado el orden del día...'` }
     ];
 
     try {
@@ -263,7 +275,6 @@ class GeminiService {
     defenseService.logRequest();
 
     try {
-      // 1. Consolidación de texto de entrada
       let allText = "";
       let hasBinary = false;
 
@@ -276,10 +287,7 @@ class GeminiService {
         }
       }
 
-      // 2. Lógica de Tubería (Piping)
       if (!hasBinary && allText.length > 0) {
-        // Usamos chunks más pequeños para asegurar que el output (que es input + tags) 
-        // nunca exceda el límite de tokens de salida.
         const chunks = this.chunkText(allText, 4000); 
         console.log(`[Audit] Processing ${allText.length} chars in ${chunks.length} chunks.`);
         
@@ -292,23 +300,24 @@ class GeminiService {
                  onProgress(i + 1, chunks.length);
              }
 
-             // El prompt es una orden de REPRODUCCIÓN, no de análisis.
              const prompt = `INPUT_DATA_START:
 ${chunk}
 :INPUT_DATA_END
 
-TASK: REPRODUCE THE INPUT DATA EXACTLY.
-1. Copy the text inside INPUT_DATA_START and INPUT_DATA_END word-for-word.
-2. While copying, inject <FLAW> tags where style rules are violated.
-3. DO NOT SUMMARIZE. DO NOT TRUNCATE.
-4. Output ONLY the tagged text.`;
+TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN (ESTILO ACTA 349).
+1. Copia el texto EXACTAMENTE igual (Verbatim).
+2. DETECTA ACRÓNIMOS: "ISVIMED" -> sugerir "Isvimed". "Icbf" -> sugerir "ICBF".
+3. DETECTA COMILLAS: Títulos con «...», Discurso con “...”.
+4. DETECTA MONEDA: "$20.000" -> sugerir "$ 20.000" (espacio).
+5. DETECTA COHERENCIA Y BASURA.
+6. NO RESUMAS.`;
 
              const response = await this.generateWithFallback(
                 {
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     config: {
                         systemInstruction: AUDIT_SYSTEM_INSTRUCTION,
-                        temperature: 0.0, // Determinismo máximo
+                        temperature: 0.0,
                         maxOutputTokens: 8192,
                     }
                 },
@@ -316,22 +325,19 @@ TASK: REPRODUCE THE INPUT DATA EXACTLY.
                 'gemini-3-flash'
              );
              
-             // Limpieza básica por si el modelo devuelve markdown extra
              let resultText = response.text || "";
              resultText = resultText.replace(/^```xml\n/, '').replace(/^```\n/, '').replace(/\n```$/, '');
              
              results.push(resultText);
         }
         
-        // Reconstrucción del documento total
         return results.join(""); 
       }
 
-      // Fallback para binarios (imágenes/audio) donde no podemos hacer chunking de texto
       const userMessage = {
         role: 'user',
         parts: [
-          { text: "INSTRUCCIÓN: Analiza este documento. Extrae el texto y aplica etiquetas <FLAW>." },
+          { text: "INSTRUCCIÓN: Analiza este documento. Extrae el texto y aplica etiquetas <FLAW> según Manual Acta 349." },
           ...contents
         ]
       };
