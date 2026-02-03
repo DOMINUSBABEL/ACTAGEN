@@ -413,7 +413,7 @@ export function createInitialMetrics(): AgentMetrics {
     errorsCount: 0,
     retriesCount: 0,
     modelName: 'Gemini',
-    modelVersion: '2.0-flash',
+    modelVersion: '3-flash',
     temperature: 0.7,
     contextWindowUsed: 0,
     contextWindowMax: 1_000_000,

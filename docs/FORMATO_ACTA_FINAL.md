@@ -43,6 +43,8 @@ Este documento especifica el formato estándar de salida para las actas parlamen
 
 ## 1. Portada / Carátula
 
+> **Requisito Heráldico:** La portada debe incluir obligatoriamente el escudo oficial del Concejo de Medellín y los logotipos institucionales correspondientes en el encabezado, alineados según la diplomática oficial.
+
 ```
 Sesión Plenaria
 Ordinaria

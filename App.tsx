@@ -33,6 +33,7 @@ import { SessionCard } from './components/SessionCard';
 import { TerminalOutput } from './components/TerminalOutput';
 import { FileUploader } from './components/FileUploader';
 import { PipelineTab } from './components/PipelineTab';  // NUEVO
+import { defenseService } from './services/defenseService'; // 🛡️ DEFENSE
 
 // Configure PDF.js worker
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
@@ -104,6 +105,17 @@ export default function App() {
 
   useEffect(() => {
     geminiService.initChat();
+    
+    // 🛡️ SECURITY INIT
+    // 1. Check URL for access code (e.g. ?access_code=DOMINUS_SECURE_2026)
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('access_code');
+    if (code) {
+        defenseService.setAccessCode(code);
+    }
+    
+    // 2. Expose defense service for console management
+    (window as any).defense = defenseService;
   }, []);
 
   const handleSessionSelect = (id: string) => {

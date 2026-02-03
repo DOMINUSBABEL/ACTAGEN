@@ -1,7 +1,7 @@
 /**
  * ACTA DOCUMENT GENERATOR
- * Genera el documento final del acta en formato Word/PDF
- * Basado en el formato oficial del Concejo de Medellín
+ * Genera el documento final del acta en formato institucional del Concejo de Medellín
+ * Basado en el formato de las actas 349 y 350.
  */
 
 import { ActaFinal, ActaMetadata, Concejal, Intervencion, VotacionInfo } from '../types/actaOutput';
@@ -18,10 +18,33 @@ const NUMEROS_LETRAS: Record<number, string> = {
   5: 'cinco', 6: 'seis', 7: 'siete', 8: 'ocho', 9: 'nueve',
   10: 'diez', 11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce',
   15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho',
-  19: 'diecinueve', 20: 'veinte', 21: 'veintiún'
+  19: 'diecinueve', 20: 'veinte', 21: 'veintiuno'
 };
 
 // ===== HELPERS =====
+
+/**
+ * Convierte un número en su representación textual formal (estilo legislativo)
+ * @param n Número a convertir (0-999)
+ * @returns string con el número en letras
+ */
+export function numeroALetras(n: number): string {
+  if (n < 0) return 'menos ' + numeroALetras(Math.abs(n));
+  if (n <= 21) return NUMEROS_LETRAS[n];
+  
+  if (n < 30) return `veinti${NUMEROS_LETRAS[n - 20]}`;
+  
+  const unidades = n % 10;
+  const decenas = Math.floor(n / 10);
+  
+  const DECENAS_LETRAS: Record<number, string> = {
+    3: 'treinta', 4: 'cuarenta', 5: 'cincuenta', 6: 'sesenta',
+    7: 'setenta', 8: 'ochenta', 9: 'noventa'
+  };
+
+  if (unidades === 0) return DECENAS_LETRAS[decenas];
+  return `${DECENAS_LETRAS[decenas]} y ${NUMEROS_LETRAS[unidades]}`;
+}
 
 export function formatearFechaCompleta(fecha: string | Date): string {
   const d = typeof fecha === 'string' ? new Date(fecha) : fecha;
@@ -38,18 +61,15 @@ export function formatearFechaOficial(fecha: string | Date): string {
   return `${diaSemana}, ${formatearFechaCompleta(fecha)}`;
 }
 
-export function numeroALetras(n: number): string {
-  if (NUMEROS_LETRAS[n]) return NUMEROS_LETRAS[n];
-  if (n < 30) return `veinti${NUMEROS_LETRAS[n - 20]}`;
-  return n.toString(); // Fallback
-}
-
 export function formatearVotoDual(numero: number): string {
   return `${numero} (${numeroALetras(numero)})`;
 }
 
 export function formatearHora(hora: string): string {
-  const [h, m] = hora.split(':').map(Number);
+  if (!hora) return "";
+  const parts = hora.split(':').map(Number);
+  if (parts.length < 2) return hora;
+  const [h, m] = parts;
   const periodo = h >= 12 ? 'p. m.' : 'a. m.';
   const hora12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${hora12}:${m.toString().padStart(2, '0')} ${periodo}`;
@@ -58,141 +78,95 @@ export function formatearHora(hora: string): string {
 // ===== GENERADOR DE SECCIONES =====
 
 export function generarPortada(metadata: ActaMetadata): string {
+  const fecha = metadata.fechaFormateada || formatearFechaCompleta(metadata.fecha);
   return `
-# ACTA DE SESIÓN PLENARIA No. ${metadata.numero}
-## MODALIDAD: ${metadata.tipo.toUpperCase()}
+Sesión Plenaria
+Ordinaria
 
-**CONCEJO DE MEDELLÍN**
-PERÍODO 2024-2027
+Acta ${metadata.numero}
 
----
-
-**FECHA:** ${formatearFechaOficial(metadata.fecha)}
-`;
+${fecha}
+\f`; // Page break
 }
 
 export function generarEncabezado(
-  fecha: string,
-  horaInicio: string,
-  horaFin: string,
-  lugar: string,
-  asistentes: Concejal[],
-  ausentes: { concejal: Concejal; justificada: boolean; motivo?: string }[]
+  metadata: ActaMetadata,
+  encabezado: any
 ): string {
-  const tablaAsistencia = asistentes.map(c => 
-    `| ${c.apellidos?.toUpperCase() || c.nombreCompleto.split(' ').slice(-2).join(' ').toUpperCase()}, ${c.nombre} | ✓ |`
-  ).join('\n');
-
-  const tablaAusentes = ausentes.map(a => 
-    `| ${a.concejal.nombreCompleto} | ${a.justificada ? 'Excusa' : 'Ausente'} |`
-  ).join('\n');
+  const asistentesStr = encabezado.asistentes.map((c: Concejal) => c.nombreCompleto).join('\n            ');
+  const ausentesStr = encabezado.ausentes.length > 0 
+    ? encabezado.ausentes.map((a: any) => `${a.concejal.nombreCompleto}, concejal(a)\n            Ausencia ${a.justificada ? 'justificada' : 'no justificada'}${a.motivo ? `. ${a.motivo}` : ''}`).join('\n            ')
+    : "No se presentaron inasistencias.";
 
   return `
-**HORA DE INICIO:** ${formatearHora(horaInicio)}
-**HORA DE FINALIZACIÓN:** ${formatearHora(horaFin)}
-**LUGAR:** ${lugar}
+SESIÓN PLENARIA ORDINARIA
+ACTA ${metadata.numero}
 
----
+FECHA:      Medellín, ${formatearFechaCompleta(metadata.fecha)}
 
-## 1. LLAMADO A LISTA Y VERIFICACIÓN DEL QUÓRUM
+HORA:       De las ${encabezado.horaInicio} a las ${encabezado.horaFin} horas
 
-| HONORABLE CONCEJAL | ASISTENCIA |
-|:---|:---:|
-${tablaAsistencia}
-${tablaAusentes}
+LUGAR:      Recinto oficial de sesiones
 
-**TOTAL PRESENTES:** ${asistentes.length} honorables concejales.
-${ausentes.length > 0 ? `**AUSENCIAS:** ${ausentes.length} (${ausentes.filter(a => a.justificada).length} justificadas)` : ''}
+ASISTENTES: ${asistentesStr}
 
-*Existe quórum para deliberar y decidir.*
+AUSENTES:   ${ausentesStr}
+
+El secretario General informó que se contaba con cuórum suficiente para deliberar y decidir
+
+Siendo las ${encabezado.horaApertura || encabezado.horaInicio} horas el presidente declaró abierta la sesión
 `;
 }
 
 export function generarOrdenDelDia(items: { numero: number; titulo: string; descripcion?: string }[]): string {
   const lista = items.map(item => {
-    let linea = `${item.numero}. ${item.titulo}`;
-    if (item.descripcion) {
-      linea += `\n   *${item.descripcion}*`;
-    }
-    return linea;
-  }).join('\n');
+    return `${item.numero}.  ${item.titulo}`;
+  }).join('\n\n');
 
   return `
-## 2. ORDEN DEL DÍA
+ORDEN DEL DÍA:
 
 ${lista}
-
-**Votación:** Aprobado por unanimidad.
 `;
 }
 
 export function generarIntervencion(intervencion: Intervencion): string {
-  const { orador, contenido, timestampVideo } = intervencion;
+  const { orador, contenido } = intervencion;
   
-  let encabezado = '';
+  let cargoStr = '';
   if (orador.esConcejal) {
-    encabezado = `**H.C. ${orador.nombre.toUpperCase()}${orador.dependencia ? ` (${orador.dependencia})` : ''}:**`;
-  } else if (orador.esFuncionario) {
-    encabezado = `**${orador.cargo.toUpperCase()}, ${orador.nombre}:**`;
+    cargoStr = 'el/la concejal(a)';
+  } else if (orador.cargo) {
+    cargoStr = `el/la ${orador.cargo.toLowerCase()}${orador.dependencia ? ` de ${orador.dependencia}` : ''}`;
   } else {
-    encabezado = `**${orador.nombre}${orador.organizacion ? `, ${orador.organizacion}` : ''}:**`;
+    cargoStr = 'el ciudadano';
   }
 
-  const timestamp = timestampVideo ? ` *[${timestampVideo}]*` : '';
-
   return `
-${encabezado}${timestamp}
+Intervino ${cargoStr}, ${orador.nombre}:
 
-"${contenido}"
+${contenido}
 `;
 }
 
-export function generarVotacionNominal(votacion: VotacionInfo): string {
-  if (!votacion.votosNominales || votacion.votosNominales.length === 0) {
-    return `
-**VOTACIÓN ORDINARIA**
-
-**Resultado:** ${votacion.resultado === 'aprobado' ? 'Aprobado' : 'Rechazado'} con ${formatearVotoDual(votacion.votosSi || 0)} votos afirmativos.
-`;
-  }
-
-  const tabla = votacion.votosNominales.map(v => 
-    `| ${v.concejal} | ${v.voto.toUpperCase()} |`
-  ).join('\n');
-
-  const afirmativos = votacion.votosNominales.filter(v => v.voto === 'si').length;
-  const negativos = votacion.votosNominales.filter(v => v.voto === 'no').length;
-  const abstenciones = votacion.votosNominales.filter(v => v.voto === 'abstencion').length;
-
-  let resultado = `${formatearVotoDual(afirmativos)} votos afirmativos`;
-  if (negativos > 0) resultado += `, ${formatearVotoDual(negativos)} negativos`;
-  if (abstenciones > 0) resultado += `, ${formatearVotoDual(abstenciones)} abstenciones`;
-
+export function generarVotacion(asunto: string, resultado: string): string {
   return `
-**VOTACIÓN NOMINAL**
-
-| HONORABLE CONCEJAL | VOTO |
-|:---|:---:|
-${tabla}
-
-**Resultado:** ${votacion.resultado === 'aprobado' ? 'Aprobado' : 'Rechazado'} con ${resultado}.
+Se sometió a consideración ${asunto}. No se presentaron intervenciones. ${resultado}.
 `;
 }
 
 export function generarCierre(
-  horaFin: string,
-  proximaSesion: { dia: string; fecha: string; hora: string; lugar: string },
-  presidente: string,
-  secretario: string
+  cierre: any
 ): string {
+  const fechaProc = cierre.convocatoria.fecha;
+  const diaSemana = cierre.convocatoria.dia;
+  const hora = cierre.convocatoria.hora;
+
   return `
-## CIERRE DE LA SESIÓN
+Agotado el orden del día, el presidente levantó la sesión siendo las ${cierre.horaLevantamiento} horas.
 
-Agotado el orden del día, el presidente del Concejo agradece a los funcionarios de la Administración Municipal, a los honorables concejales y a la ciudadanía presente y conectada virtualmente.
 
-Se convoca para la próxima sesión ordinaria el día ${proximaSesion.dia}, ${proximaSesion.fecha}, a las ${formatearHora(proximaSesion.hora)}, en el mismo recinto.
-
-Siendo las ${formatearHora(horaFin)}, se levanta la sesión.
+CONVOCATORIA: la próxima sesión plenaria se realizará el ${diaSemana} ${fechaProc} a las ${hora} horas, en el recinto oficial de sesiones del Concejo Distrital de Medellín.
 
 ---
 
@@ -200,13 +174,8 @@ Para constancia se firma por quienes en ella intervinieron:
 
 
 
-**${presidente.toUpperCase()}**
-Presidente del Concejo
-
-
-
-**${secretario.toUpperCase()}**
-Secretario General
+${cierre.firmas[0]?.nombre.toUpperCase() || 'PRESIDENTE'}         ${cierre.firmas[1]?.nombre.toUpperCase() || 'SECRETARIO GENERAL'}
+       Presidente                                   Secretario General
 `;
 }
 
@@ -218,72 +187,44 @@ export function generarActaCompleta(acta: ActaFinal): string {
   // 1. Portada
   secciones.push(generarPortada(acta.metadata));
 
-  // 2. Encabezado con asistencia
-  secciones.push(generarEncabezado(
-    acta.metadata.fecha,
-    acta.encabezado.horaInicio,
-    acta.encabezado.horaFin,
-    acta.encabezado.lugar,
-    acta.encabezado.asistentes,
-    acta.encabezado.ausentes
-  ));
+  // 2. Encabezado
+  secciones.push(generarEncabezado(acta.metadata, acta.encabezado));
 
   // 3. Orden del día
   secciones.push(generarOrdenDelDia(acta.ordenDelDia));
 
-  // 4. Desarrollo (intervenciones)
-  secciones.push('\n## 3. DESARROLLO DE LA SESIÓN\n');
+  // 4. Desarrollo
+  secciones.push('\nDESARROLLO\n');
   
+  // Aprobación orden del día
+  secciones.push(generarVotacion("el orden del día", acta.desarrollo.aprobacionOrdenDia.resultado === 'aprobado' ? "Fue aprobado" : "No fue aprobado"));
+
   if (acta.desarrollo.debatePrincipal) {
-    secciones.push(`\n### ${acta.desarrollo.debatePrincipal.titulo.toUpperCase()}\n`);
+    secciones.push(`\n${acta.desarrollo.debatePrincipal.titulo.toUpperCase()}\n`);
     
-    // Intervenciones agrupadas
     const { intervenciones } = acta.desarrollo.debatePrincipal;
     
+    // Concejales citantes
     if (intervenciones.concejales.length > 0) {
-      secciones.push('\n#### Intervenciones de los Honorables Concejales\n');
+      secciones.push('\n• Iniciaron las intervenciones de los concejales citantes:\n');
       intervenciones.concejales.forEach(i => secciones.push(generarIntervencion(i)));
     }
     
+    // Administración
     if (intervenciones.administracion.length > 0) {
-      secciones.push('\n#### Intervenciones de la Administración\n');
+      secciones.push('\n• Iniciaron las intervenciones de la Administración distrital:\n');
       intervenciones.administracion.forEach(i => secciones.push(generarIntervencion(i)));
     }
-
-    // Votación final si existe
-    if (acta.desarrollo.debatePrincipal.votacionFinal) {
-      secciones.push(generarVotacionNominal(acta.desarrollo.debatePrincipal.votacionFinal));
-    }
   }
 
-  // 5. Comunicaciones
-  if (acta.comunicaciones.length > 0) {
-    secciones.push('\n## 4. COMUNICACIONES\n');
-    acta.comunicaciones.forEach(c => {
-      secciones.push(`${c.numero}. Oficio No. ${c.radicado} de ${c.remitente}: ${c.asunto}\n`);
-    });
-  }
+  // 5. Cierre
+  secciones.push(generarCierre(acta.cierre));
 
-  // 6. Proposiciones
-  if (acta.proposiciones.length > 0) {
-    secciones.push('\n## 5. PROPOSICIONES Y VARIOS\n');
-    acta.proposiciones.forEach(p => {
-      secciones.push(`- **${p.iniciativa.concejal}:** ${p.titulo}\n`);
-    });
-  }
+  // 6. Firmas (SIMI Standard)
+  secciones.push(`\n\n${acta.cierre.firmas[0]?.nombre.toUpperCase() || 'PRESIDENTE'}\nPresidente\n\n${acta.cierre.firmas[1]?.nombre.toUpperCase() || 'SECRETARIO GENERAL'}\nSecretario General\n`);
 
-  // 7. Cierre
-  secciones.push(generarCierre(
-    acta.cierre.horaLevantamiento,
-    acta.cierre.convocatoria,
-    acta.cierre.firmas.find(f => f.cargo === 'Presidente')?.nombre || 'PRESIDENTE',
-    acta.cierre.firmas.find(f => f.cargo === 'Secretario General')?.nombre || 'SECRETARIO GENERAL'
-  ));
-
-  // 8. Nota final
-  if (acta.metadata.youtubeUrl) {
-    secciones.push(`\n---\n\n*Esta sesión puede ser consultada en:*\n- YouTube: ${acta.metadata.youtubeUrl}\n`);
-  }
+  // 7. Nota final
+  secciones.push(`\nNota:\n\nSi desea conocer el contenido completo de la sesión, por favor diríjase a YouTube para acceder al video.\n\nEnlace vídeo sesión plenaria:\n${acta.metadata.youtubeUrl || 'https://www.youtube.com/@ConcejodeMedellinOficial'}\n`);
 
   return secciones.join('\n');
 }
@@ -295,8 +236,8 @@ export default {
   generarEncabezado,
   generarOrdenDelDia,
   generarIntervencion,
-  generarVotacionNominal,
   generarCierre,
+  numeroALetras,
   formatearFechaCompleta,
   formatearHora,
   formatearVotoDual

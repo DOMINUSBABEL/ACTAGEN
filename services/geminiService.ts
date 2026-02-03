@@ -1,4 +1,5 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { defenseService } from "./defenseService";
 
 // Definimos la instrucción del sistema con esteroides para evitar resúmenes.
 const SYSTEM_INSTRUCTION = `
@@ -73,7 +74,7 @@ class GeminiService {
   public initChat(): void {
     try {
       this.chat = this.ai.chats.create({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3-flash',
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           temperature: 0.3, 
@@ -99,6 +100,10 @@ class GeminiService {
         return await operation();
       } catch (error: any) {
         if (!this.isQuotaError(error) || i === retries - 1) {
+          // If it's a quota error and we are out of retries, trip the breaker
+          if (this.isQuotaError(error)) {
+             defenseService.triggerCircuitBreaker();
+          }
           throw error;
         }
         console.warn(`[GeminiService] Quota hit (429). Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
@@ -162,6 +167,13 @@ class GeminiService {
   }
 
   public async sendMessage(message: string, youtubeUrl?: string, audioData?: AudioPart): Promise<GeminiResponse> {
+    // 🛡️ DEFENSE CHECK
+    const defense = defenseService.canProceed();
+    if (!defense.allowed) {
+      throw new Error(`[Security Block]: ${defense.reason}`);
+    }
+    defenseService.logRequest();
+
     if (!this.chat) this.initChat();
     if (!this.chat) throw new Error("Chat not initialized");
 
@@ -192,6 +204,13 @@ class GeminiService {
   }
 
   public async *generateLongAudioActa(audioData: AudioPart, sessionContext: string): AsyncGenerator<{step: string, text: string}> {
+    // 🛡️ DEFENSE CHECK
+    const defense = defenseService.canProceed();
+    if (!defense.allowed) {
+      throw new Error(`[Security Block]: ${defense.reason}`);
+    }
+    defenseService.logRequest();
+
     if (!this.chat) this.initChat();
     if (!this.chat) throw new Error("Chat not initialized");
 
@@ -236,6 +255,13 @@ class GeminiService {
     contents: any[], 
     onProgress?: (current: number, total: number) => void
   ): Promise<string> {
+    // 🛡️ DEFENSE CHECK
+    const defense = defenseService.canProceed();
+    if (!defense.allowed) {
+      throw new Error(`[Security Block]: ${defense.reason}`);
+    }
+    defenseService.logRequest();
+
     try {
       // 1. Consolidación de texto de entrada
       let allText = "";
@@ -286,8 +312,8 @@ TASK: REPRODUCE THE INPUT DATA EXACTLY.
                         maxOutputTokens: 8192,
                     }
                 },
-                'gemini-3-flash-preview',
-                'gemini-flash-latest'
+                'gemini-3-flash',
+                'gemini-3-flash'
              );
              
              // Limpieza básica por si el modelo devuelve markdown extra
@@ -319,8 +345,8 @@ TASK: REPRODUCE THE INPUT DATA EXACTLY.
                 maxOutputTokens: 8192,
             }
         },
-        'gemini-3-flash-preview', 
-        'gemini-flash-latest' 
+        'gemini-3-flash', 
+        'gemini-3-flash' 
       );
 
       return response.text || "No se pudo procesar el archivo binario.";
