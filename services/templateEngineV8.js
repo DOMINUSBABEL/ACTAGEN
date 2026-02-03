@@ -15,6 +15,10 @@ import {
     ExternalHyperlink
 } from "docx";
 import sizeOf from "image-size";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const STYLES = {
     font: "Arial",
@@ -27,21 +31,38 @@ const STYLES = {
     lineSpacing: 360,
 };
 
-const MASTER_MEDIA = "C:/Users/jegom/clawd/ACTAGEN/templates/extracted_349/word/media";
+const MASTER_MEDIA = path.join(__dirname, "../templates/extracted_349/word/media");
+
+const ASSET_CACHE = {};
+
+function getCachedAsset(filename) {
+    if (ASSET_CACHE[filename]) return ASSET_CACHE[filename];
+
+    const filePath = path.join(MASTER_MEDIA, filename);
+    if (fs.existsSync(filePath)) {
+        try {
+            const buffer = fs.readFileSync(filePath);
+            const dims = sizeOf(buffer);
+            ASSET_CACHE[filename] = { buffer, dims };
+            return ASSET_CACHE[filename];
+        } catch (e) {
+            console.error(`Failed to load asset ${filename}`, e);
+        }
+    }
+    return null;
+}
 
 export async function exportToDiplomaticV8(contentArray, outputPath, metadata = {}, imageBaseDir) {
     const children = [];
 
     // 1. ESCUDO DE ARMAS (image1.png)
-    const escudoPath = path.join(MASTER_MEDIA, "image1.png");
-    if (fs.existsSync(escudoPath)) {
-        const escudoBuffer = fs.readFileSync(escudoPath);
-        const dims = sizeOf(escudoBuffer);
+    const escudoAsset = getCachedAsset("image1.png");
+    if (escudoAsset) {
         children.push(new Paragraph({
             children: [
                 new ImageRun({
-                    data: escudoBuffer,
-                    transformation: { width: 100, height: (100 / dims.width) * dims.height },
+                    data: escudoAsset.buffer,
+                    transformation: { width: 100, height: (100 / escudoAsset.dims.width) * escudoAsset.dims.height },
                 }),
             ],
             alignment: AlignmentType.CENTER,
@@ -124,18 +145,16 @@ export async function exportToDiplomaticV8(contentArray, outputPath, metadata = 
     }
 
     // 4. HEADER & FOOTER WITH MASTER LOGOS
-    const headerLogoPath = path.join(MASTER_MEDIA, "image2.png");
     let headerChildren = [new Paragraph({ children: [new TextRun({ text: "CONCEJO DISTRITAL DE MEDELLÍN", bold: true, size: 16 })], alignment: AlignmentType.CENTER })];
     
-    if (fs.existsSync(headerLogoPath)) {
-        const logoBuf = fs.readFileSync(headerLogoPath);
-        const lDims = sizeOf(logoBuf);
+    const headerAsset = getCachedAsset("image2.png");
+    if (headerAsset) {
         headerChildren = [
             new Paragraph({
                 children: [
                     new ImageRun({
-                        data: logoBuf,
-                        transformation: { width: 50, height: (50 / lDims.width) * lDims.height },
+                        data: headerAsset.buffer,
+                        transformation: { width: 50, height: (50 / headerAsset.dims.width) * headerAsset.dims.height },
                     }),
                     new TextRun({ text: "  CONCEJO DISTRITAL DE MEDELLÍN", bold: true, size: 18 })
                 ],
