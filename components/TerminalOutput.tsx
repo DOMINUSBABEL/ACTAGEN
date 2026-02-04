@@ -1,18 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { TerminalLine } from '../types';
-import { Terminal, Command } from 'lucide-react';
+import { Command } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 
 interface TerminalOutputProps {
   lines: TerminalLine[];
 }
 
 export const TerminalOutput: React.FC<TerminalOutputProps> = ({ lines }) => {
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [lines]);
-
   return (
     <div className="bg-[#1E1E2E] rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/5 font-mono text-sm my-4">
       <div className="bg-[#27273A] px-4 py-2.5 flex items-center justify-between border-b border-white/5">
@@ -26,9 +21,19 @@ export const TerminalOutput: React.FC<TerminalOutputProps> = ({ lines }) => {
           <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
         </div>
       </div>
-      <div className="p-5 h-56 overflow-y-auto text-slate-300 space-y-2 custom-scrollbar">
-        {lines.map((line, idx) => (
-          <div key={idx} className={`font-medium flex items-start gap-2 ${
+      {/*
+        Optimization: Replaced standard map with Virtuoso for list virtualization.
+        - Handles large lists (10k+ items) efficiently.
+        - followOutput="auto" mimics the auto-scroll behavior.
+        - style={{ height: '14rem' }} matches h-56 (14rem).
+      */}
+      <Virtuoso
+        style={{ height: '14rem' }}
+        className="p-5 text-slate-300 custom-scrollbar"
+        data={lines}
+        followOutput="auto"
+        itemContent={(index, line) => (
+          <div className={`font-medium flex items-start gap-2 mb-2 ${
             line.type === 'command' ? 'text-blue-400' :
             line.type === 'success' ? 'text-emerald-400' :
             line.type === 'warning' ? 'text-amber-400' :
@@ -37,9 +42,8 @@ export const TerminalOutput: React.FC<TerminalOutputProps> = ({ lines }) => {
             <span className="opacity-30 select-none text-xs mt-1">➜</span>
             <span className="leading-relaxed">{line.text}</span>
           </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
+        )}
+      />
     </div>
   );
 };
