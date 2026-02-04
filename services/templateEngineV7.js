@@ -39,59 +39,69 @@ export async function exportToTemplateV7(contentArray, outputPath, metadata = {}
     children.push(new Paragraph({ children: [new PageBreak()] }));
 
     // --- BODY CONTENT ---
-    for (const item of contentArray) {
+    const bodyPromises = contentArray.map(async (item) => {
         if (item.type === 'image') {
             const imagePath = `${imageBaseDir}/${item.value}`;
-            if (fs.existsSync(imagePath)) {
-                try {
-                    // Explicit Buffer conversion for Node.js <-> docx compatibility
-                    const imageBuffer = fs.readFileSync(imagePath);
-                    const dimensions = sizeOf(imageBuffer); // Pass buffer, not path
-                    let width = dimensions.width || 400;
-                    let height = dimensions.height || 300;
-                    
-                    if (width > 450) {
-                        const ratio = 450 / width;
-                        width = 450;
-                        height = Math.round(height * ratio);
-                    }
+            try {
+                // Explicit Buffer conversion for Node.js <-> docx compatibility
+                const imageBuffer = await fs.promises.readFile(imagePath);
+                const dimensions = sizeOf(imageBuffer); // Pass buffer, not path
+                let width = dimensions.width || 400;
+                let height = dimensions.height || 300;
 
-                    children.push(new Paragraph({
-                        children: [
-                            new ImageRun({
-                                data: imageBuffer, // Pass buffer
-                                transformation: { width: width, height: height },
-                            }),
-                        ],
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 200, after: 200 }
-                    }));
-                } catch (imgError) {
-                    console.error(`Error processing image ${item.value}: ${imgError.message}`);
-                    children.push(new Paragraph({ children: [new TextRun({ text: `[ERROR DE IMAGEN: ${item.value}]`, color: "FF0000" })] }));
+                if (width > 450) {
+                    const ratio = 450 / width;
+                    width = 450;
+                    height = Math.round(height * ratio);
                 }
-            } else {
-                children.push(new Paragraph({ children: [new TextRun({ text: `[IMAGEN NO ENCONTRADA: ${item.value}]`, color: "FF0000" })] }));
+
+                return new Paragraph({
+                    children: [
+                        new ImageRun({
+                            data: imageBuffer, // Pass buffer
+                            transformation: { width: width, height: height },
+                        }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 200 }
+                });
+            } catch (err) {
+                if (err.code === 'ENOENT') {
+                    return new Paragraph({ children: [new TextRun({ text: `[IMAGEN NO ENCONTRADA: ${item.value}]`, color: "FF0000" })] });
+                }
+                console.error(`Error processing image ${item.value}: ${err.message}`);
+                return new Paragraph({ children: [new TextRun({ text: `[ERROR DE IMAGEN: ${item.value}]`, color: "FF0000" })] });
             }
         } else {
             // Text logic unchanged
             const lines = item.value.split('\n');
+            const paragraphs = [];
             lines.forEach(line => {
                 const trimmed = line.trim();
                 if (!trimmed) {
-                    children.push(new Paragraph({ spacing: { after: 100 } }));
+                    paragraphs.push(new Paragraph({ spacing: { after: 100 } }));
                     return;
                 }
                 if (trimmed === trimmed.toUpperCase() && trimmed.length > 5 && !trimmed.includes(":")) {
-                    children.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, font: STYLES.font, size: STYLES.sizeBody })], alignment: AlignmentType.CENTER, spacing: { before: 600, after: 300 } }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, font: STYLES.font, size: STYLES.sizeBody })], alignment: AlignmentType.CENTER, spacing: { before: 600, after: 300 } }));
                 } else if (trimmed.startsWith("Intervino")) {
-                    children.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, font: STYLES.font, size: STYLES.sizeBody })], spacing: { before: 400, after: 200, line: STYLES.lineSpacing }, alignment: AlignmentType.LEFT }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, font: STYLES.font, size: STYLES.sizeBody })], spacing: { before: 400, after: 200, line: STYLES.lineSpacing }, alignment: AlignmentType.LEFT }));
                 } else if (trimmed.startsWith("“") || trimmed.startsWith("\"") || (trimmed.startsWith("(") && trimmed.endsWith(")"))) {
-                    children.push(new Paragraph({ children: [new TextRun({ text: trimmed, font: STYLES.font, size: STYLES.sizeCitation })], indent: { left: 720, right: 720 }, alignment: AlignmentType.JUSTIFIED, spacing: { after: 240, line: 300 } }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: trimmed, font: STYLES.font, size: STYLES.sizeCitation })], indent: { left: 720, right: 720 }, alignment: AlignmentType.JUSTIFIED, spacing: { after: 240, line: 300 } }));
                 } else {
-                    children.push(new Paragraph({ children: [new TextRun({ text: trimmed, font: STYLES.font, size: STYLES.sizeBody })], alignment: AlignmentType.JUSTIFIED, spacing: { after: 240, line: STYLES.lineSpacing } }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: trimmed, font: STYLES.font, size: STYLES.sizeBody })], alignment: AlignmentType.JUSTIFIED, spacing: { after: 240, line: STYLES.lineSpacing } }));
                 }
             });
+            return paragraphs;
+        }
+    });
+
+    const bodyChunks = await Promise.all(bodyPromises);
+    for (const chunk of bodyChunks) {
+        if (Array.isArray(chunk)) {
+            children.push(...chunk);
+        } else {
+            children.push(chunk);
         }
     }
 
