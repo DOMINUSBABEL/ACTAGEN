@@ -27,15 +27,15 @@ const STYLES = {
     lineSpacing: 360,
 };
 
-const MASTER_MEDIA = "C:/Users/jegom/clawd/ACTAGEN/templates/extracted_349/word/media";
+const MASTER_MEDIA = path.join(process.cwd(), "templates/extracted_349/word/media");
 
 export async function exportToDiplomaticV8(contentArray, outputPath, metadata = {}, imageBaseDir) {
     const children = [];
 
     // 1. ESCUDO DE ARMAS (image1.png)
     const escudoPath = path.join(MASTER_MEDIA, "image1.png");
-    if (fs.existsSync(escudoPath)) {
-        const escudoBuffer = fs.readFileSync(escudoPath);
+    try {
+        const escudoBuffer = await fs.promises.readFile(escudoPath);
         const dims = sizeOf(escudoBuffer);
         children.push(new Paragraph({
             children: [
@@ -47,6 +47,8 @@ export async function exportToDiplomaticV8(contentArray, outputPath, metadata = 
             alignment: AlignmentType.CENTER,
             spacing: { before: 1000 }
         }));
+    } catch (e) {
+        // Ignore if file doesn't exist
     }
 
     // 2. PORTADA
@@ -63,20 +65,18 @@ export async function exportToDiplomaticV8(contentArray, outputPath, metadata = 
     for (const item of contentArray) {
         if (item.type === 'image') {
             const imagePath = path.join(imageBaseDir, item.value);
-            if (fs.existsSync(imagePath)) {
-                try {
-                    const imageBuffer = fs.readFileSync(imagePath);
-                    const dimensions = sizeOf(imageBuffer);
-                    let width = Math.min(dimensions.width, 450);
-                    let height = (width / dimensions.width) * dimensions.height;
+            try {
+                const imageBuffer = await fs.promises.readFile(imagePath);
+                const dimensions = sizeOf(imageBuffer);
+                let width = Math.min(dimensions.width, 450);
+                let height = (width / dimensions.width) * dimensions.height;
 
-                    children.push(new Paragraph({
-                        children: [new ImageRun({ data: imageBuffer, transformation: { width, height } })],
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 200, after: 200 }
-                    }));
-                } catch (e) { console.error(e); }
-            }
+                children.push(new Paragraph({
+                    children: [new ImageRun({ data: imageBuffer, transformation: { width, height } })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 200 }
+                }));
+            } catch (e) { console.error(e); }
         } else {
             const lines = item.value.split('\n');
             lines.forEach(line => {
@@ -127,8 +127,8 @@ export async function exportToDiplomaticV8(contentArray, outputPath, metadata = 
     const headerLogoPath = path.join(MASTER_MEDIA, "image2.png");
     let headerChildren = [new Paragraph({ children: [new TextRun({ text: "CONCEJO DISTRITAL DE MEDELLÍN", bold: true, size: 16 })], alignment: AlignmentType.CENTER })];
     
-    if (fs.existsSync(headerLogoPath)) {
-        const logoBuf = fs.readFileSync(headerLogoPath);
+    try {
+        const logoBuf = await fs.promises.readFile(headerLogoPath);
         const lDims = sizeOf(logoBuf);
         headerChildren = [
             new Paragraph({
@@ -142,6 +142,8 @@ export async function exportToDiplomaticV8(contentArray, outputPath, metadata = 
                 alignment: AlignmentType.LEFT
             })
         ];
+    } catch (e) {
+        // Ignore if file doesn't exist
     }
 
     const doc = new Document({
