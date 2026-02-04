@@ -30,7 +30,20 @@ Based on Ruth Navarro's feedback [2026-01-30]
 - **Goal:** Create a side-car tool or metadata layer that allows the human to click a paragraph and open the YouTube link at that exact second.
 - **Status:** PENDING
 
-## Iteration 5: Annex Verification
-- **Task:** Extract "Communications" and "Propositions" headers.
-- **Rule:** Cross-reference extracted items with a list of files in the `Annex` folder.
-- **Status:** PENDING
+## Iteration 7: Legislative Cross-Referencing (V10.1)
+- **Task:** Verify "Título" and "Preámbulo" accuracy against source legislative documents.
+- **Goal:** In "Segundo Debate" scenarios, the engine must compare the transcribed title/preamble with the official "Informe de Ponencia para Segundo Debate".
+- **Requirements:**
+    - Identify the Project Number (e.g., N° 067 de 2025).
+    - Search for the corresponding Report (Informe de Ponencia).
+    - Flag any deviation between the transcribed text and the official legislative wording.
+- **Status:** PENDING (Added per user request 2026-02-03)
+
+## Iteration 6: Legal Liaison & Consultation (V10)
+- **Task:** Automation for consulting logical discrepancies with legal staff.
+- **Goal:** Generate a draft email or message for "la abogada" (Ruth or specific interviniente) when a `[Nota: Posible error...]` flag is raised.
+- **Requirements:**
+    - Reference the Acta number.
+    - Quote the suspicious paragraph.
+    - Provide a link to the YouTube timestamp (if available from Iteration 4).
+- **Status:** PENDING (Added per user request 2026-02-03)
