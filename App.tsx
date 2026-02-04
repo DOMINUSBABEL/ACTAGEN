@@ -72,15 +72,17 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    let fullText = "";
     
-    for (let i = 1; i <= pdf.numPages; i++) {
+    // Parallel extraction for better performance
+    const pagePromises = Array.from({ length: pdf.numPages }, (_, i) => i + 1).map(async (i) => {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(' ');
-      fullText += `\n[PÁGINA ${i}]\n${pageText}\n`;
-    }
-    return fullText;
+      return `\n[PÁGINA ${i}]\n${pageText}\n`;
+    });
+
+    const pageTexts = await Promise.all(pagePromises);
+    return pageTexts.join('');
   } catch (error) {
     console.error("PDF Extraction Failed:", error);
     throw error;
