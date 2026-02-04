@@ -291,15 +291,12 @@ class GeminiService {
         const chunks = this.chunkText(allText, 4000); 
         console.log(`[Audit] Processing ${allText.length} chars in ${chunks.length} chunks.`);
         
-        const results = [];
-        
-        for (let i = 0; i < chunks.length; i++) {
-             const chunk = chunks[i];
-             
-             if (onProgress) {
-                 onProgress(i + 1, chunks.length);
-             }
+        // Parallel processing with concurrency limit
+        const CONCURRENCY_LIMIT = 3;
+        const results: string[] = new Array(chunks.length);
+        let completed = 0;
 
+        const processChunk = async (chunk: string, index: number) => {
              const prompt = `INPUT_DATA_START:
 ${chunk}
 :INPUT_DATA_END
@@ -328,8 +325,23 @@ TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN (ESTILO ACTA 349).
              let resultText = response.text || "";
              resultText = resultText.replace(/^```xml\n/, '').replace(/^```\n/, '').replace(/\n```$/, '');
              
-             results.push(resultText);
-        }
+             results[index] = resultText;
+
+             completed++;
+             if (onProgress) {
+                 onProgress(completed, chunks.length);
+             }
+        };
+
+        // Custom Promise Pool
+        const iterator = chunks.entries();
+        const workers = new Array(Math.min(CONCURRENCY_LIMIT, chunks.length)).fill(null).map(async () => {
+            for (const [index, chunk] of iterator) {
+                await processChunk(chunk, index);
+            }
+        });
+
+        await Promise.all(workers);
         
         return results.join(""); 
       }
