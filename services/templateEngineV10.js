@@ -63,6 +63,11 @@ const OFFICIAL_NAMES = [
     "Luis Guillermo de Jesús Vélez Álvarez"
 ];
 
+const PRE_NORMALIZED_NAMES = OFFICIAL_NAMES.map(n => ({
+    original: n,
+    normalized: n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+}));
+
 function isForeignWord(word) {
     const foreign = ["lapsus", "calami", "item", "quorum", "sine", "qua", "non", "status", "quo", "habeas", "corpus"];
     return foreign.includes(word.toLowerCase().replace(/[.,()]/g, ""));
@@ -160,11 +165,10 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
                 if (!trimmed) return;
 
                 // 1. OFFICIAL NAME & SPELLING SANITIZATION
-                OFFICIAL_NAMES.forEach(n => {
-                    const normLine = trimmed.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                    const normName = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                    if (normLine.includes(normName)) {
-                        trimmed = trimmed.replace(new RegExp(normName, 'gi'), n);
+                const normLine = trimmed.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                PRE_NORMALIZED_NAMES.forEach(({ original, normalized }) => {
+                    if (normLine.includes(normalized)) {
+                        trimmed = trimmed.replace(new RegExp(normalized, 'gi'), original);
                     }
                 });
 
