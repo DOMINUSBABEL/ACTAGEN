@@ -166,6 +166,6 @@ export async function exportToTemplateV6(content, outputPath, metadata = {}) {
     });
 
     const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outputPath, buffer);
+    await fs.promises.writeFile(outputPath, buffer);
     return outputPath;
 }
