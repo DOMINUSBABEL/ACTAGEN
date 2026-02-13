@@ -235,5 +235,5 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
 
     const doc = new Document({ sections });
     const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outputPath, buffer);
+    await fs.promises.writeFile(outputPath, buffer);
 }
