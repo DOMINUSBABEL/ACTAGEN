@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { 
   LayoutDashboard, 
@@ -283,6 +283,38 @@ export default function App() {
       </div>
   );
 
+  const parsedXmlContent = useMemo(() => {
+    if (!xmlResult) return null;
+    return xmlResult.split(/(<FLAW[^>]*>.*?<\/FLAW>)/g).map((part, index) => {
+       if (part.startsWith('<FLAW')) {
+          const typeMatch = part.match(/type="([^"]*)"/);
+          const suggestionMatch = part.match(/suggestion="([^"]*)"/);
+          const contentMatch = part.match(/>(.*?)<\/FLAW>/);
+
+          const type = typeMatch ? typeMatch[1] : 'unknown';
+          const suggestion = suggestionMatch ? suggestionMatch[1] : '';
+          const content = contentMatch ? contentMatch[1] : '';
+
+          let colorClass = 'text-slate-200';
+          if (type === 'spelling') colorClass = 'text-red-400 border-b border-red-400/50';
+          if (type === 'style') colorClass = 'text-yellow-400 border-b border-yellow-400/50';
+          if (type === 'coherence') colorClass = 'text-orange-400 border-b border-orange-400/50';
+          if (type === 'grammar') colorClass = 'text-blue-400 border-b border-blue-400/50';
+
+          return (
+             <span key={index} className="relative group cursor-help inline-block mx-1">
+                <span className={`${colorClass} font-bold bg-white/5 px-1 rounded`}>{content}</span>
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-black text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none border border-white/20">
+                   <div className="font-bold text-[10px] uppercase text-slate-400 mb-1">TYPE: {type}</div>
+                   <div className="text-green-400">SUGGESTION: {suggestion}</div>
+                </span>
+             </span>
+          );
+       }
+       return <span key={index}>{part}</span>;
+    });
+  }, [xmlResult]);
+
   return (
     <div className="flex h-screen w-full bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden">
       <aside className="hidden md:flex w-[280px] flex-col h-full flex-shrink-0 border-r border-slate-200 shadow-sm"><Sidebar /></aside>
@@ -409,34 +441,7 @@ export default function App() {
                       
                       <div className="flex-1 overflow-auto custom-scrollbar text-slate-300 leading-relaxed whitespace-pre-wrap">
                          {xmlResult ? (
-                            xmlResult.split(/(<FLAW[^>]*>.*?<\/FLAW>)/g).map((part, index) => {
-                               if (part.startsWith('<FLAW')) {
-                                  const typeMatch = part.match(/type="([^"]*)"/);
-                                  const suggestionMatch = part.match(/suggestion="([^"]*)"/);
-                                  const contentMatch = part.match(/>(.*?)<\/FLAW>/);
-                                  
-                                  const type = typeMatch ? typeMatch[1] : 'unknown';
-                                  const suggestion = suggestionMatch ? suggestionMatch[1] : '';
-                                  const content = contentMatch ? contentMatch[1] : '';
-
-                                  let colorClass = 'text-slate-200';
-                                  if (type === 'spelling') colorClass = 'text-red-400 border-b border-red-400/50';
-                                  if (type === 'style') colorClass = 'text-yellow-400 border-b border-yellow-400/50';
-                                  if (type === 'coherence') colorClass = 'text-orange-400 border-b border-orange-400/50';
-                                  if (type === 'grammar') colorClass = 'text-blue-400 border-b border-blue-400/50';
-
-                                  return (
-                                     <span key={index} className="relative group cursor-help inline-block mx-1">
-                                        <span className={`${colorClass} font-bold bg-white/5 px-1 rounded`}>{content}</span>
-                                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-black text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none border border-white/20">
-                                           <div className="font-bold text-[10px] uppercase text-slate-400 mb-1">TYPE: {type}</div>
-                                           <div className="text-green-400">SUGGESTION: {suggestion}</div>
-                                        </span>
-                                     </span>
-                                  );
-                               }
-                               return <span key={index}>{part}</span>;
-                            })
+                            parsedXmlContent
                          ) : (
                             <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-4">
                                {isValidating ? (
