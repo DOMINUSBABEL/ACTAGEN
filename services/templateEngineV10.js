@@ -136,24 +136,24 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
     });
 
     // --- BODY CONTENT (Section 3) ---
-    const bodyChildren = [];
     let isWithinIntervention = false;
 
-    for (const item of contentArray) {
+    const bodyPromises = contentArray.map(async (item) => {
         if (item.type === 'image') {
             const imagePath = path.join(imageBaseDir, item.value);
-            if (fs.existsSync(imagePath)) {
-                try {
-                    const buf = fs.readFileSync(imagePath);
-                    const dims = sizeOf(buf);
-                    bodyChildren.push(new Paragraph({
-                        children: [new ImageRun({ data: buf, transformation: { width: 480, height: (480/dims.width)*dims.height } })],
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 400, after: 400 }
-                    }));
-                } catch (e) {}
+            try {
+                const buf = await fs.promises.readFile(imagePath);
+                const dims = sizeOf(buf);
+                return new Paragraph({
+                    children: [new ImageRun({ data: buf, transformation: { width: 480, height: (480/dims.width)*dims.height } })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 400, after: 400 }
+                });
+            } catch (e) {
+                return null;
             }
         } else {
+            const paragraphs = [];
             const lines = item.value.split('\n');
             lines.forEach(line => {
                 let trimmed = line.replace(/[ \t]+/g, " ").trim();
@@ -171,11 +171,11 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
                 // 2. VOTING LIST LOGIC (Hardened)
                 if (trimmed.startsWith("Votaron SÍ") || trimmed.startsWith("Votaron NO")) {
                     const parts = trimmed.split(":");
-                    bodyChildren.push(new Paragraph({ children: [new TextRun({ text: parts[0] + ":", bold: true })], spacing: { before: 300, after: 100 } }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: parts[0] + ":", bold: true })], spacing: { before: 300, after: 100 } }));
                     if (parts[1]) {
                         const names = parts[1].match(/[A-ZÁÉÍÓÚ][a-záéíóú]+\s[A-ZÁÉÍÓÚ][a-záéíóú]+(\s[A-ZÁÉÍÓÚ][a-záéíóú]+)*/g) || [parts[1]];
                         names.forEach(n => {
-                            bodyChildren.push(new Paragraph({ children: [new TextRun({ text: "\t" + n.trim(), bold: true })], tabStops: [{ type: "left", position: 3000 }] }));
+                            paragraphs.push(new Paragraph({ children: [new TextRun({ text: "\t" + n.trim(), bold: true })], tabStops: [{ type: "left", position: 3000 }] }));
                         });
                     }
                     return;
@@ -191,7 +191,7 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
 
                 // 4. INTERVENTION LABELS (Protection from Citation Style)
                 if (trimmed.startsWith("Intervino") || trimmed.startsWith("Intervención")) {
-                    bodyChildren.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, size: 24 })], spacing: { before: 500, after: 200 } }));
+                    paragraphs.push(new Paragraph({ children: [new TextRun({ text: trimmed, bold: true, size: 24 })], spacing: { before: 500, after: 200 } }));
                     isWithinIntervention = true;
                     return;
                 }
@@ -205,7 +205,7 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
                     italics: isForeignWord(w.toLowerCase().replace(/[.,()]/g, ""))
                 }));
 
-                bodyChildren.push(new Paragraph({
+                paragraphs.push(new Paragraph({
                     children: textRuns,
                     indent: isCitation ? { left: 720, right: 720 } : {},
                     alignment: AlignmentType.JUSTIFIED,
@@ -213,8 +213,12 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
                 }));
                 isWithinIntervention = false;
             });
+            return paragraphs;
         }
-    }
+    });
+
+    const results = await Promise.all(bodyPromises);
+    const bodyChildren = results.flat().filter(p => p !== null);
 
     sections.push({
         properties: { page: { margin: STYLES.margins } },
