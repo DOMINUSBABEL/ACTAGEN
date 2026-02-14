@@ -27,6 +27,7 @@ import {
   Layers,
   Brain  // NUEVO
 } from 'lucide-react';
+import { pLimit } from './utils/concurrency';
 import { geminiService, GeminiResponse } from './services/geminiService';
 import { SessionData, SessionStatus, ChatMessage, TerminalLine } from './types';
 import { SessionCard } from './components/SessionCard';
@@ -73,13 +74,14 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
     
-    // Parallel extraction for better performance
-    const pagePromises = Array.from({ length: pdf.numPages }, (_, i) => i + 1).map(async (i) => {
+    // Parallel extraction with concurrency limit for better memory usage
+    const limit = pLimit(5);
+    const pagePromises = Array.from({ length: pdf.numPages }, (_, i) => i + 1).map((i) => limit(async () => {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(' ');
       return `\n[PÁGINA ${i}]\n${pageText}\n`;
-    });
+    }));
 
     const pageTexts = await Promise.all(pagePromises);
     return pageTexts.join('');
