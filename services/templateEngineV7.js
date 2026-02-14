@@ -1,5 +1,5 @@
-// Fix for V7 Template Engine (Image Buffer Handling)
 import fs from "fs";
+import path from "path";
 import { 
     Document, 
     Packer, 
@@ -41,7 +41,7 @@ export async function exportToTemplateV7(contentArray, outputPath, metadata = {}
     // --- BODY CONTENT ---
     const bodyPromises = contentArray.map(async (item) => {
         if (item.type === 'image') {
-            const imagePath = `${imageBaseDir}/${item.value}`;
+            const imagePath = path.join(imageBaseDir, item.value);
             try {
                 // Explicit Buffer conversion for Node.js <-> docx compatibility
                 const imageBuffer = await fs.promises.readFile(imagePath);
