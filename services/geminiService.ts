@@ -275,17 +275,19 @@ class GeminiService {
     defenseService.logRequest();
 
     try {
-      let allText = "";
+      const textParts: string[] = [];
       let hasBinary = false;
 
       for (const part of contents) {
         if (part.text) {
           let cleanText = part.text.replace(/^\[ARCHIVO.*?\]\n/, ''); 
-          allText += cleanText + "\n";
+          textParts.push(cleanText);
         } else if (part.inlineData) {
           hasBinary = true;
         }
       }
+
+      const allText = textParts.length > 0 ? textParts.join("\n") + "\n" : "";
 
       if (!hasBinary && allText.length > 0) {
         const chunks = this.chunkText(allText, 4000); 
