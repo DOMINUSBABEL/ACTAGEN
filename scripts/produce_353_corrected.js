@@ -27,7 +27,7 @@ async function run() {
                     // Also generic cleanup
                     let text = item.value;
                     text = text.replace(/Acta 348/g, "Acta 353"); 
-                    text = text.replace(/7 de noviembre/g, "14 de noviembre"); // Fix date if present
+                    text = text.replace(/\b0?7 de noviembre\b/g, "14 de noviembre"); // Correct the date in the body text
                     return { type: 'text', value: text };
                 }
                 return item;
