@@ -64,6 +64,8 @@ TAREA: Detectar errores que violen el Manual de Estilo V5.
 5. **Basura Editorial (Type: basura_editorial):**
    - Letras sueltas o residuos de OCR/Dictado.
 
+6. **Suggestion Attribute:** In `<FLAW>`, add `Suggestion="..."` with the corrected text if applicable. Example: `<FLAW Type="estilo" Suggestion="Isvimed">ISVIMED</FLAW>`.
+
 DEVUELVE EL TEXTO ORIGINAL CON LAS ETIQUETAS XML INCRUSTADAS.
 `;
 

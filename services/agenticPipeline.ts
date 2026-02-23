@@ -8,6 +8,7 @@
 
 import { geminiService } from './geminiService';
 import { callGeminiForStep, formatVoteResult } from './geminiPipelineService';
+import { processFlawTags } from './teiFlawProcessor';
 import actaDocumentGenerator from './actaDocumentGenerator';
 import { 
   PipelineStep, 
@@ -392,12 +393,17 @@ export class AgenticPipeline {
       });
       
       // En una implementación real, aquí procesaríamos los tags <FLAW>
-      // Por ahora, limpiamos los tags para el documento final pero registramos los errores
-      const flawCount = (taggedText.match(/<FLAW/g) || []).length;
-      const cleanText = taggedText.replace(/<FLAW[^>]*>(.*?)<\/FLAW>/g, '$1');
+      // Implementación Real: Procesamiento estructural de flaws y sugerencias
+      const { cleanText, flaws } = processFlawTags(taggedText);
       
-      this.stats.errorsFound += flawCount;
-      thoughts.push(createThought('action', `${flawCount} violaciones de estilo detectadas y corregidas (incluye reglas de Ruth)`));
+      this.stats.errorsFound += flaws.length;
+
+      flaws.forEach(flaw => {
+        const msg = `Flaw [${flaw.type}]: "${flaw.original}" -> "${flaw.suggestion || flaw.original}"`;
+        thoughts.push(createThought('warning', msg, { flaw }));
+      });
+
+      thoughts.push(createThought('action', `${flaws.length} violaciones de estilo detectadas y corregidas (incluye reglas de Ruth)`));
       
       return { result: 'Estilo aplicado', thoughts, contentUpdate: cleanText };
     } catch (e) {}
