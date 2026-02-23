@@ -1,5 +1,6 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { defenseService } from "./defenseService";
+import { pLimit } from "../utils/concurrency";
 
 // Definimos la instrucción del sistema basada en el "Estándar Oro" (Acta 349) y observaciones de Ruth Navarro.
 const SYSTEM_INSTRUCTION = `
@@ -293,7 +294,7 @@ class GeminiService {
         
         // Parallel processing with concurrency limit
         const CONCURRENCY_LIMIT = 3;
-        const results: string[] = new Array(chunks.length);
+        const limit = pLimit(CONCURRENCY_LIMIT);
         let completed = 0;
 
         const processChunk = async (chunk: string, index: number) => {
@@ -325,23 +326,15 @@ TAREA: ACTÚA COMO UN ASISTENTE DE REDACCIÓN (ESTILO ACTA 349).
              let resultText = response.text || "";
              resultText = resultText.replace(/^```xml\n/, '').replace(/^```\n/, '').replace(/\n```$/, '');
              
-             results[index] = resultText;
-
              completed++;
              if (onProgress) {
                  onProgress(completed, chunks.length);
              }
+             return resultText;
         };
 
-        // Custom Promise Pool
-        const iterator = chunks.entries();
-        const workers = new Array(Math.min(CONCURRENCY_LIMIT, chunks.length)).fill(null).map(async () => {
-            for (const [index, chunk] of iterator) {
-                await processChunk(chunk, index);
-            }
-        });
-
-        await Promise.all(workers);
+        const promises = chunks.map((chunk, index) => limit(() => processChunk(chunk, index)));
+        const results = await Promise.all(promises);
         
         return results.join(""); 
       }
