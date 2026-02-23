@@ -272,11 +272,30 @@ export class AgenticPipeline {
       thoughts.push(createThought('error', 'No se encontró sección de llamado a lista'));
       return { result: 'Quórum: NO ENCONTRADO', thoughts };
     }
+
+    // Isolate roll call section to avoid false positives from later mentions
+    const startIndex = quorumMatch.index!;
+    const textAfterStart = this.workingDocument.slice(startIndex);
+
+    // Look for next section marker (Order of the Day or similar)
+    const nextSectionMatch = textAfterStart.match(/orden\s+del\s+d[ií]a|2\.\s|desarrollo\s+del/i);
+
+    let rollCallSection = textAfterStart;
+    if (nextSectionMatch && nextSectionMatch.index! > 50) {
+        rollCallSection = textAfterStart.slice(0, nextSectionMatch.index);
+    } else {
+        rollCallSection = textAfterStart.slice(0, 5000); // Safe fallback limit
+    }
+
+    thoughts.push(createThought('info', `Fallback: Sección de quórum aislada (${rollCallSection.length} caracteres)`));
+
     const concejalesLista = this.input.concejalesLista || CONCEJALES_OFICIALES;
     let presentCount = 0;
+    const rollCallUpper = rollCallSection.toUpperCase();
+
     for (const concejal of concejalesLista) {
-      const apellido = concejal.split(',')[0].toUpperCase();
-      if (this.workingDocument.toUpperCase().includes(apellido)) presentCount++;
+      const apellido = concejal.split(',')[0].toUpperCase().trim();
+      if (rollCallUpper.includes(apellido)) presentCount++;
     }
     return { result: `Fallback: ${presentCount}/21`, thoughts };
   }
