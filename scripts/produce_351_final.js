@@ -16,10 +16,8 @@ async function run() {
         'C:/Users/jegom/.clawdbot/media/inbound/6fdd23e2-3320-46c5-8de8-71928b4c438c.docx'  // Parte 3
     ];
 
-    let fullText = "";
-
-    // 1. Extract and Clean
-    for (const file of files) {
+    // 1. Extract and Clean in parallel
+    const textParts = await Promise.all(files.map(async (file) => {
         console.log(`📖 Leyendo ${file}...`);
         let text = await extractText(file);
         
@@ -30,8 +28,10 @@ async function run() {
         text = text.replace(/Parte \d+.*?\n/g, "");
         text = text.replace(/Hablaba.*?\n/g, "");
         
-        fullText += text + "\n\n";
-    }
+        return text;
+    }));
+
+    const fullText = textParts.join("\n\n") + "\n\n";
 
     // 2. Generate Final Doc
     const metadata = {
