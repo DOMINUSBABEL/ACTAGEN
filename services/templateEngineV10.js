@@ -84,14 +84,16 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
     // --- PORTADA (Section 1) ---
     const portadaChildren = [];
     const escudoPath = path.join(MASTER_MEDIA, "image1.png");
-    if (fs.existsSync(escudoPath)) {
-        const buf = fs.readFileSync(escudoPath);
+    try {
+        const buf = await fs.promises.readFile(escudoPath);
         const dims = sizeOf(buf);
         portadaChildren.push(new Paragraph({
             children: [new ImageRun({ data: buf, transformation: { width: 180, height: (180/dims.width)*dims.height } })],
             alignment: AlignmentType.CENTER,
             spacing: { before: 1200 }
         }));
+    } catch (e) {
+        // Log image load error or skip as before
     }
     portadaChildren.push(new Paragraph({ spacing: { before: 2000 } }));
     portadaChildren.push(new Paragraph({ children: [new TextRun({ text: "Sesión Plenaria", font: STYLES.font, size: 56 })], alignment: AlignmentType.CENTER }));
@@ -107,8 +109,8 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
     // --- SHARED HEADER ---
     const headerLogoPath = path.join(MASTER_MEDIA, "image2.png");
     let commonHeader = null;
-    if (fs.existsSync(headerLogoPath)) {
-        const logoBuf = fs.readFileSync(headerLogoPath);
+    try {
+        const logoBuf = await fs.promises.readFile(headerLogoPath);
         const lDims = sizeOf(logoBuf);
         commonHeader = new Header({
             children: [new Paragraph({
@@ -122,6 +124,8 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
                 alignment: AlignmentType.LEFT
             })]
         });
+    } catch (e) {
+        // Skip header image if load fails
     }
 
     // --- ASISTENCIA PAGE (Section 2) ---
@@ -151,16 +155,16 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
     for (const item of contentArray) {
         if (item.type === 'image') {
             const imagePath = path.join(imageBaseDir, item.value);
-            if (fs.existsSync(imagePath)) {
-                try {
-                    const buf = fs.readFileSync(imagePath);
-                    const dims = sizeOf(buf);
-                    bodyChildren.push(new Paragraph({
-                        children: [new ImageRun({ data: buf, transformation: { width: 480, height: (480/dims.width)*dims.height } })],
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 400, after: 400 }
-                    }));
-                } catch (e) {}
+            try {
+                const buf = await fs.promises.readFile(imagePath);
+                const dims = sizeOf(buf);
+                bodyChildren.push(new Paragraph({
+                    children: [new ImageRun({ data: buf, transformation: { width: 480, height: (480/dims.width)*dims.height } })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 400, after: 400 }
+                }));
+            } catch (e) {
+                // Skip content image if load fails
             }
         } else {
             const lines = item.value.split('\n');
@@ -244,5 +248,5 @@ export async function exportToDiplomaticV9(contentArray, outputPath, metadata = 
 
     const doc = new Document({ sections });
     const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outputPath, buffer);
+    await fs.promises.writeFile(outputPath, buffer);
 }
