@@ -167,13 +167,11 @@ export default function App() {
         setValidatorFiles(updatedFiles);
         setXmlResult(''); 
         
-        const newParts: any[] = [];
-        
-        for (const file of files) {
+        const filePromises = files.map(async (file) => {
              if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
                  try {
                      const extractedText = await extractTextFromPDF(file);
-                     newParts.push({ text: `[ARCHIVO PDF EXTRAÍDO: ${file.name}]\n${extractedText}` });
+                     return { text: `[ARCHIVO PDF EXTRAÍDO: ${file.name}]\n${extractedText}` };
                  } catch (e) { 
                      console.error("PDF Text Extraction Error", e);
                      const base64Data = await new Promise((resolve) => {
@@ -181,9 +179,9 @@ export default function App() {
                         reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                         reader.readAsDataURL(file);
                      });
-                     newParts.push({
+                     return {
                         inlineData: { data: base64Data, mimeType: 'application/pdf' }
-                     });
+                     };
                  }
             } else {
                 const text = await new Promise((resolve) => {
@@ -191,9 +189,11 @@ export default function App() {
                      reader.onload = (e) => resolve(e.target?.result as string);
                      reader.readAsText(file);
                 });
-                newParts.push({ text: `[ARCHIVO: ${file.name}]\n${text}` });
+                return { text: `[ARCHIVO: ${file.name}]\n${text}` };
             }
-        }
+        });
+
+        const newParts = await Promise.all(filePromises);
         
         setValidatorParts(prev => [...prev, ...newParts]);
     }
