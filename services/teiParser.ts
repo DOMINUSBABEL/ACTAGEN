@@ -41,25 +41,67 @@ export class TeiParser {
     if (!textNode) return "";
 
     // Función recursiva para recolectar texto de nodos p, div, etc.
-    const collectText = (node: any): string => {
-      if (typeof node === 'string') return node;
-      if (Array.isArray(node)) return node.map(collectText).join(' ');
+    const collectText = (node: any, parts: string[]) => {
+      if (typeof node === 'string') {
+        parts.push(node);
+        return;
+      }
+      if (Array.isArray(node)) {
+        for (let i = 0; i < node.length; i++) {
+          collectText(node[i], parts);
+          if (i < node.length - 1) {
+            parts.push(' ');
+          }
+        }
+        return;
+      }
       
-      let text = "";
+      const start = parts.length;
       // Priorizar el cuerpo (body) si existe
       const target = node.body || node;
       
       for (const key in target) {
         if (key === '#text') {
-          text += target[key];
+          parts.push(target[key]);
         } else if (!key.startsWith('@_')) {
-          text += collectText(target[key]) + " ";
+          collectText(target[key], parts);
+          parts.push(" ");
         }
       }
-      return text.trim();
+
+      // Simulate trim() on the joined result of this segment
+      const end = parts.length;
+      if (end > start) {
+        // Trim Start
+        let firstNonEmpty = -1;
+        for (let i = start; i < end; i++) {
+            if (!/\S/.test(parts[i])) {
+                 parts[i] = "";
+                 continue;
+            }
+
+            parts[i] = parts[i].trimStart();
+            firstNonEmpty = i;
+            break;
+        }
+
+        // Trim End
+        if (firstNonEmpty !== -1) {
+            for (let i = end - 1; i >= firstNonEmpty; i--) {
+                if (!/\S/.test(parts[i])) {
+                    parts[i] = "";
+                    continue;
+                }
+                parts[i] = parts[i].trimEnd();
+                break;
+            }
+        }
+      }
     };
 
-    return collectText(textNode);
+    const parts: string[] = [];
+    collectText(textNode, parts);
+    return parts.join('').trim();
   }
 }
 
