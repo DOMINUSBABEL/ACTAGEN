@@ -153,6 +153,14 @@ export class AgenticPipeline {
 
   // ===== FASE 1: INGENIERÍA DE ENTRADA Y FUSIÓN =====
 
+  private cleanTranscriptPart(part: string): string {
+    return part
+      .replace(/^\[Archivo:.*?\]\n/gm, '')
+      .replace(/^Transcripción generada por.*\n/gm, '')
+      .replace(/^---+\n/gm, '')
+      .trim();
+  }
+
   private async step1_normalizarFuentes(): Promise<{ result?: string; thoughts: ThoughtLine[]; contentUpdate?: string }> {
     const thoughts: ThoughtLine[] = [];
     
@@ -161,11 +169,7 @@ export class AgenticPipeline {
     // Limpiar metadatos de cada fragmento
     const cleaned = this.input.transcriptParts.map((part, i) => {
       // Remover headers de software de transcripción
-      let clean = part
-        .replace(/^\[Archivo:.*?\]\n/gm, '')
-        .replace(/^Transcripción generada por.*\n/gm, '')
-        .replace(/^---+\n/gm, '')
-        .trim();
+      const clean = this.cleanTranscriptPart(part);
       
       thoughts.push(createThought('action', `Fragmento ${i + 1}: ${clean.length} caracteres limpiados`));
       return clean;
@@ -205,24 +209,52 @@ export class AgenticPipeline {
     } catch (error: any) {
       thoughts.push(createThought('error', `Error en fusión LLM: ${error.message}. Aplicando fallback local.`));
       
-      // Fallback local que ya existía
-      const parts = this.workingDocument.split('\n\n');
+      // Fallback local mejorado: usar partes originales limpias
+      const cleanedParts = this.input.transcriptParts.map(p => this.cleanTranscriptPart(p));
+      const mergedParts: string[] = [];
       let mergedCount = 0;
       
-      for (let i = 0; i < parts.length - 1; i++) {
-        const endOfCurrent = parts[i].slice(-200);
-        const startOfNext = parts[i + 1].slice(0, 200);
-        for (let overlapLen = 100; overlapLen >= 30; overlapLen--) {
-          const needle = endOfCurrent.slice(-overlapLen);
-          if (startOfNext.includes(needle)) {
-            const overlapIndex = startOfNext.indexOf(needle);
-            parts[i + 1] = parts[i + 1].slice(overlapIndex + overlapLen);
-            mergedCount++;
-            break;
+      if (cleanedParts.length > 0) {
+        let currentPart = cleanedParts[0];
+
+        for (let i = 1; i < cleanedParts.length; i++) {
+          const nextPart = cleanedParts[i];
+
+          // Buscar solapamiento
+          const endOfCurrent = currentPart.slice(-200);
+          const startOfNext = nextPart.slice(0, 200);
+          let foundOverlap = false;
+
+          for (let overlapLen = 100; overlapLen >= 30; overlapLen--) {
+            const needle = endOfCurrent.slice(-overlapLen);
+            if (startOfNext.includes(needle)) {
+              const overlapIndex = startOfNext.indexOf(needle);
+              // Cortar desde el final del solapamiento
+              const cutLength = overlapIndex + overlapLen;
+
+              thoughts.push(createThought('info', `Solapamiento detectado entre parte ${i} y ${i + 1} (${overlapLen} chars)`));
+
+              // Fusionar: parte actual + parte siguiente (sin solapamiento)
+              currentPart = currentPart + nextPart.slice(cutLength);
+              mergedCount++;
+              foundOverlap = true;
+              break;
+            }
+          }
+
+          if (!foundOverlap) {
+            mergedParts.push(currentPart);
+            currentPart = nextPart;
           }
         }
+        mergedParts.push(currentPart);
       }
-      return { result: `Fallback: ${mergedCount} solapamientos fusionados`, thoughts, contentUpdate: parts.join('\n\n') };
+
+      return {
+        result: `Fallback: ${mergedCount} solapamientos fusionados`,
+        thoughts,
+        contentUpdate: mergedParts.join('\n\n')
+      };
     }
   }
 
